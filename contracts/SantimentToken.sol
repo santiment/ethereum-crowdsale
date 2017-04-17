@@ -2,9 +2,17 @@ pragma solidity ^0.4.8;
 
 import "./ERC20.sol";
 import "./SubscriptionSupport.sol";
-import "./InflationSupport.sol";
-import "./CrowdsaleSupport.sol";
+import "./BountyMinter.sol";
+import "./CrowdsaleMinter.sol";
 
-contract SantimentToken is ERC20, SubscriptionSupport, CrowdsaleSupport, InflationSupport {
+// ToDo:
+//      1) don't forget difficulty bomb. 
+//
+//
+//
+contract SantimentToken is ERC20, SubscriptionSupport, CrowdsaleMinter, BountyMinter {
+    mapping (address => uint) balances;
+
+
 
 }
