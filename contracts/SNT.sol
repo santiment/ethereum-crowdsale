@@ -18,7 +18,20 @@ contract SubscriptionStatus {
     enum Status {NEW, ACTIVE, HOLD, CLOSED}
 }
 
-contract ExtERC20 is ERC20, SubscriptionStatus  {
+contract BaseLib {
+    modifier only(address allowed) {
+        if (msg.sender != allowed) throw;
+        _;
+    }
+
+    function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }
+    function min(uint a, uint b) returns (uint) { return a <= b ? a : b; }
+    function min(uint a, uint b, uint c) returns (uint) { return a <= b ? min(a,c) : min(b,c); }
+
+
+}
+
+contract ExtERC20 is ERC20, SubscriptionStatus, BaseLib  {
     struct Subscription {
         address transferFrom;
         address transferTo;
@@ -47,6 +60,7 @@ contract ExtERC20 is ERC20, SubscriptionStatus  {
     function cancelSubscription(uint256 subId, bytes _eventData);
     function holdSubscription(uint256 subId, bytes _eventData) returns (bool success);
     function unholdSubscription(uint256 subId, bytes _eventData) returns (bool success);
+
 }
 
 contract EventListener is SubscriptionStatus {
@@ -97,6 +111,11 @@ contract ERC20Impl is ERC20 {
     mapping (address => mapping (address => uint256)) allowed;
 
     uint256 public totalSupply;
+
+    modifier onlyHolder(address holder) {
+        if (balanceOf(holder) == 0) throw;
+        _;
+    }
 
 }
 
@@ -218,9 +237,105 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 }
 
 
-contract ReverseDutch {
-    function bid(uint bountyTokenAmount, uint startPrice);
-}
+contract ReverseAuction is ERC20Impl, BaseLib {
+
+    uint PRICE_DROP_PER_BLOCK = 10;
+    uint MIN_POSSIBLE_PRICE = 100;
+    uint HEAD = 0;
+    uint TAIL = 0;
+
+    struct Bid {
+        uint price;
+        uint amount;
+        uint blockNr;
+        address maker;
+        uint next;
+        uint prev;
+    }
+
+    Bid[] offers;
+    mapping(address => uint) withdrawals;
+
+    function bid(uint amount, uint price, uint hintPos) returns (uint bidId) {
+        offers.push( Bid({
+            price  : price,
+            amount : amount,
+            blockNr : block.number,
+            maker : msg.sender,
+            next : 0,
+            prev : 0,
+        }) );
+        var insPos = seek(price, hintPos);
+        insertAfter(insPos,offers.length-1);
+    }
+
+    function take(uint sntAmount, uint maxPrice) payable {
+        var ethAmount = msg.value;
+        for(var n = HEAD; ethAmount > 0 && sntAmount >0; n = offers[n].next ) {
+            var bid = offers[n];
+            var actualPrice = actualBidPrice(bid);
+            if (actualPrice > maxPrice) break;
+            var amount = min(sntAmount, bid.amount, ethAmount / actualPrice);
+            var ethToPay = amount * actualPrice;
+            sntAmount -= amount;
+            ethAmount -= ethToPay;
+            withdrawals[bid.maker] += ethToPay;
+            if (amount != bid.amount) bid.amount -= amount;
+            else delete offers[n];
+        }
+        // return change to sender
+        if (ethAmount > 0 && !msg.sender.send(ethAmount)) throw;
+    }
+
+    function actualBidPrice(Bid storage bid) internal returns (uint price) {
+        return bid.price - (block.number - bid.blockNr) * PRICE_DROP_PER_BLOCK;
+    }
+
+    function actualBidPrice(uint n) public returns (uint price) {
+        return actualBidPrice(offers[n]);
+    }
+
+    function withdrawal()
+    onlyHolder(msg.sender)
+    {
+        var amount = withdrawals[msg.sender];
+        delete withdrawals[msg.sender];
+        if (!msg.sender.send(amount)) throw;
+    }
+
+    // ========= linked list support =========
+    function seek(uint price, uint hintPos) returns (uint pos) {
+        // no position hint given, then start from HEAD
+        if (hintPos == 0)  hintPos = HEAD;
+        var n = hintPos;
+        if (actualBidPrice(n) < price) {
+            for(; actualBidPrice(n) < price ; ++n) { hintPos = n; }
+        } else {
+            for(; actualBidPrice(n) > price ; --n) { hintPos = n; }
+        }
+        return n;
+    }
+
+    function insertAfter(uint e, uint n) {
+        var en = offers[e].next;
+        offers[e].next = n;
+        offers[n].next = en;
+        offers[en].prev = n;
+        offers[n].prev = e;
+    }
+
+    function remove(uint e) {
+        var p = offers[e].prev;
+        var n = offers[e].next;
+        offers[p].next = n;
+        offers[n].prev = p;
+        offers[e] = offers[offers.length-1];
+        delete offers[offers.length-1];
+        p = offers[e].prev;
+        offers[p].next = e;
+    }
+
+} // contract ReverseDutchAuction
 
 
 contract BountyMinter {
@@ -236,7 +351,7 @@ contract AuctionListener {
     function onBidCanceled(uint amount, uint price);
 }
 
-contract MarketPriceTracker is AuctionListener {
+contract MarketPriceTracker is AuctionListener, BaseLib {
     struct AmountPrice {
         uint amount;
         uint amountprice;
@@ -266,9 +381,6 @@ contract MarketPriceTracker is AuctionListener {
     function MarketPriceTracker(){
         if (AVG_TIME_FRAME >= MAX_LEN) throw; // configuration error;
     }
-
-    function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }
-    function min(uint a, uint b) returns (uint) { return a <= b ? a : b; }
 
     function updateMarketPrice(uint amount, uint price) returns (uint averagePrice) {
         // #1 DDoS guarded by #2
@@ -315,14 +427,14 @@ contract MarketPriceTracker is AuctionListener {
 
 }
 
-contract SNT is ExtERC20, MarketPriceTracker, CrowdsaleMinter {
+contract SNT is ExtERC20, MarketPriceTracker {
 
     BountyMinter bountyMinter;
-    ReverseDutch reverseDutch;
+    ReverseAuction reverseAuction;
 
-    function mintBounty(){
+    function mintBounty(uint optional_BidPositionHint){
         var bountyTokenAmount = bountyMinter.mintToken();
-        reverseDutch.bid(bountyTokenAmount, lowestPrice);
+        reverseAuction.bid(bountyTokenAmount, lowestPrice * 3, optional_BidPositionHint);
     }
 
     function onBidClosed(uint amount, uint price) {
