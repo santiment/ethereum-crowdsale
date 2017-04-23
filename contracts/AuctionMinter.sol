@@ -23,7 +23,7 @@ contract AbstractAuction {
 
     Bid bids[];
 
-    function makeBid(uint amount, uint price, uint hintPos) returns (uint bidId) {
+    function push(uint amount, uint price, uint hintPos) {
         bids.push ( Bid({
             amount : amount;
             price  : price;
@@ -66,15 +66,23 @@ contract AbstractAuction {
 
 }
 
-contract CrowdsaleAuction is ERC20, AbstractAuction {
+contract AuctionMinter is ERC20, AbstractAuction {
     boolean isAborted = false;
     uint availableToken;
+    MintableToken targetToken;
     string[5] private stateNames = ["BEFORE_START",  "RUNNING", "CLOSING", "REFUND", "CLOSED" ];
     enum State { BEFORE_START,  RUNNING, CLOSING, REFUND, CLOSED }
 
 
-    function CrowdsaleAuction(uint _availableToken){
+    function AuctionMinter(uint  _availableToken, ERC20 _paymentToken, MintableToken _targetToken){
+        paymentToken = _paymentToken
+        targetToken = _targetToken;
         availableToken = _availableToken;
+    }
+
+    function makeBid(uint amount, uint price, uint hintPos){
+        push(amount, price, hintPos);
+        paymentToken.transfer(ActionMinter.address, amount * price);
     }
 
     uint finalPrice;
@@ -108,8 +116,12 @@ contract CrowdsaleAuction is ERC20, AbstractAuction {
     function performPayout(int maxStep) {
         for(var n = HEAD; n!=EOL && availableToken > 0  ; n = bids[n].prev) {
             var amount = availableToken < bids[n].amount ? bids[n].amount : availableToken;
-            balances[bids[n].maker] += amount;
             availableToken -= amount;
+            targetToken.mintMoreToken(bids[n].maker, amount);
+            var refund = bids[n].maxPrice * bids[n].amount - amount * finalPrice;
+            if (refund > 0) {
+                paymentToken.transferFrom(ActionMinter.address, bids[n].maker, refund);
+            }
         }
     }
 

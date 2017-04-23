@@ -32,7 +32,7 @@ contract SubscriptionSupport is ERC20 {
         uint subscriptionId
     ) {
         subscriptionList.push( Subscription({
-            transferFrom    :  msg.sender,
+            transferFrom    : msg.sender,
             transferTo      : transferTo,
             maxAmountToPay  : maxAmountToPay,
             startedOn       : block.number,

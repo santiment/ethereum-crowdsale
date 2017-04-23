@@ -59,3 +59,23 @@ contract ERC20 is ERC20Protocol, BalanceStore {
     }
 
 }
+
+contract MintableToken is ERC20 {
+
+    address minter;
+
+    function mintMoreToken(address account, uint moreToken)
+    only(minter)
+    {
+        balances[account] += moreToken;
+    }
+
+
+    function setMinter(address _minter) {
+        minter = _minter;
+    }
+
+    function removeMinter() {
+        delete minter;
+    }
+}
