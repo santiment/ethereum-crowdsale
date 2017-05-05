@@ -1,0 +1,14 @@
+<=====> SUBSCRIPTIONS <=====
+auction possible (different prices)
+OFFER => RUNNING => ...
+
+Platform Tx Fee;
+tx fee on refund?
+
+refund yes/no
+trial period / in advance payment
+executionDate
+executionPeriod
+
+depost+subscription ==> ethname
+executeTx+ data

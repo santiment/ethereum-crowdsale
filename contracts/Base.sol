@@ -5,10 +5,15 @@ contract BalanceStore {
     function balanceOf(address _owner) constant returns (uint256 balance);
 }
 
-contract BaseLib {
+contract Base {
 
     modifier only(address allowed) {
         if (msg.sender != allowed) throw;
+        _;
+    }
+
+    modifier only2(address allowed1, address allowed2) {
+        if (msg.sender != allowed1 && msg.sender != allowed2) throw;
         _;
     }
 
