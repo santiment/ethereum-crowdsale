@@ -3,8 +3,20 @@ pragma solidity ^0.4.8;
 import "./Base.sol";
 import "./ERC20.sol";
 
+//Desicion made.
+// 1 - Provider is solely responsible to consider failed sub charge as an error and stop Service,
+//    therefore there is no separate error state or counter for that in Token Contract
+
+//ToDo:
+// 4 - check: all functions for access modifiers: _from, _to, _others
+// 5 - check: all function for re-entrancy
+// 6 - check: all _paymentData
+
+//Ask:
+// Given: subscription one year:
+
 contract SubscriptionBase {
-    enum Status {OFFER, RUNNING, CHARGEABLE, ON_HOLD, CANCELLED}
+    enum Status {OFFER, RUNNING, CHARGEABLE, ON_HOLD, CANCELED}
 
     struct Subscription {
         address transferFrom;
@@ -12,48 +24,50 @@ contract SubscriptionBase {
         uint pricePerHour;
         uint nextChargeOn;
         uint chargePeriod;
-        //uint chargeDay;
-        uint depositId;
+        uint deposit;  //ID in Subscription and VALUE in Offer
 
-        uint startedOn;
-        uint maxExecTimes;
+        uint startOn;
+        uint validUntil;
         uint execCounter;
-        bytes extraData;
-        bool onHold;
+        bytes descriptor;
+        uint onHoldSince;
     }
 
     struct Deposit {
         uint value;
         address owner;
-        bytes extraData;
+        bytes descriptor;
     }
 
 }
 
-contract SubscriptionListener is SubscriptionBase {
+contract PaymentListener is SubscriptionBase {
 
-    function onTransfer(address _from, uint256 _value, bytes _paymentData);
-    function onApprove(address _spender, uint256 _value, bytes _paymentData);
-    function onExecute(address _spender, uint256 _value, bytes _paymentData);
+    function onPayment(address _from, uint _value, bytes _paymentData) returns (bool);
+    function onSubExecuted(uint subId) returns (bool);
     function onSubscriptionChange(uint subId, Status status, bytes _paymentData) returns (bool);
 
 }
 
 contract ExtERC20 is ERC20, SubscriptionBase {
-    function transfer(address _to, uint256 _value, bytes _paymentData) returns (bool success);
-    function transferFrom(address _from, address _to, uint256 _value, bytes _paymentData) returns (bool success);
-    function approve(address _spender, uint256 _value, bytes _paymentData) returns (bool success);
+    function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
+    function paymentFrom(address _from, PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
 
-    function createSubscription(address _spender, uint256 _value, uint256 _depositValue, bytes _extraData) returns (uint subId);
-    function cancelSubscription(uint subId, bytes _paymentData);
-    function holdSubscription (uint subId, bytes _paymentData) returns (bool success);
-    function unholdSubscription(uint subId, bytes _paymentData) returns (bool success);
-    function executeSubscription(uint[] subIds) returns (bool[] success);
+    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _validUntil, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
+    function acceptSubscriptionOffer(uint _offerId) returns (uint newSubId);
+    function cancelSubscription(uint subId, bool forced);
+    function holdSubscription (uint subId) returns (bool success);
+    function unholdSubscription(uint subId) returns (bool success);
+    function executeSubscription(uint subId) returns (bool success);
+    function postponeDueDate(uint subId, uint newDueDate);
+    function currentStatus(uint subId) constant returns(Status status);
 
-    function createDeposit(uint256 _value, bytes _extraData) returns (uint subId);
+    function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
     function returnDeposit(uint depositId);
 
-    event ExecuteSub(address indexed _owner, address indexed _spender, uint256 _value);
+    enum PaymentStatus {OK, BALANCE_ERROR, APPROVAL_ERROR}
+
+    event Payment(address _from, address _to, uint _value, uint _fee, address caller, PaymentStatus status, uint subId);
 
 }
 
@@ -61,73 +75,86 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     address beneficiary;
     address admin;
-    uint PLATFORM_FEE_PER_1000 = 1; //0,1%
+    uint PLATFORM_FEE_PER_10000 = 1; //0,01%
 
-    function transfer(address _to, uint256 _value, bytes _paymentData) returns (bool success) {
-        if (_fulfillPayment(msg.sender, _to, _value)) {
-            SubscriptionListener(_to).onTransfer(msg.sender, _value, _paymentData);
-            Transfer(msg.sender, _to, _value);
+    function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success) {
+        if (_fulfillPayment(msg.sender, _to, _value, 0)) {
+            assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
             return true;
         } else { return false; }
     }
 
-    function transferFrom(address _from, address _to, uint256 _value, bytes _paymentData) returns (bool success) {
-        if (allowed[_from][msg.sender] >= _value  && _fulfillPayment(msg.sender, _to, _value)) {
-            allowed[_from][msg.sender] -= _value;
-            SubscriptionListener(_to).onTransfer(_from, _value, _paymentData);
-            Transfer(_from, _to, _value);
-            return true;
-        } else { return false; }
-    }
-
-    function approve(address _spender, uint256 _value, bytes _paymentData) returns (bool success) {
-        if (approve(_spender, _value)) {
-            SubscriptionListener(_spender).onApprove(msg.sender, _value, _paymentData);
+    function paymentFrom(address _from, PaymentListener _to, uint _value, bytes _paymentData) returns (bool success) {
+        if (_fulfillPreapprovedPayment(_from, _to, _value)) {
+            assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
             return true;
         } else { return false; }
     }
 
     function executeSubscription(uint subId) returns (bool success) {
         Subscription storage sub = subscriptions[subId];
-        if (currentState(sub)==Status.CHARGEABLE) {
+        if (currentStatus(sub)==Status.CHARGEABLE) {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
             var _value = sub.pricePerHour * sub.chargePeriod;
 
-            if (_fulfillPayment(_from, _to, _value)) {
-                sub.nextChargeOn  = max(sub.nextChargeOn, sub.startedOn) + sub.chargePeriod;
+            success = _fulfillPayment(_from, _to, _value, subId);
+            if (success) {
+                sub.nextChargeOn  = max(sub.nextChargeOn, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
-                ExecuteSub(_from, _to, _value);
-                return true;
-            } else { return false; }
+            }
+
+            assert (PaymentListener(_to).onSubExecuted(subId));
         }
     }
 
-    function _fulfillPayment(address _from, address _to, uint _value) internal returns (bool success) {
+    function postponeDueDate(uint subId, uint newDueDate) {
+        Subscription storage sub = subscriptions[subId];
+        if (sub.nextChargeOn < newDueDate) sub.nextChargeOn = newDueDate;
+    }
+
+    function _fulfillPreapprovedPayment(address _from, address _to, uint _value) internal returns (bool success) {
+        success = _from != msg.sender && allowed[_from][msg.sender] >= _value;
+        if (!success) {
+            Payment(_from, _to, _value, _fee(_value), msg.sender, PaymentStatus.BALANCE_ERROR, 0);
+        } else {
+            success = _fulfillPayment(_from, _to, _value, 0);
+            if (success) {
+                allowed[_from][msg.sender] -= _value;
+            }
+        }
+        return success;
+    }
+
+    function _fulfillPayment(address _from, address _to, uint _value, uint subId) internal returns (bool success) {
+        var fee = _fee(_value);
         if (balances[_from] >= _value && balances[_to] + _value > balances[_to]) {
-            var fee = _getFee(_value);
             balances[_from] -= _value;
             balances[_to] += _value - fee;
             balances[beneficiary] += fee;
+            Payment(_from, _to, _value, fee, msg.sender,PaymentStatus.OK, subId);
             return true;
-        } else { return false; }
+        } else {
+            Payment(_from, _to, _value, fee, msg.sender, PaymentStatus.BALANCE_ERROR, subId);
+            return false;
+        }
     }
 
-    function _getFee(uint amount) constant internal returns (uint fee) {
-        return amount * PLATFORM_FEE_PER_1000 / 1000;
+    function _fee(uint _value) internal returns (uint fee) {
+        return _value * PLATFORM_FEE_PER_10000 / 10000;
     }
 
-    function currentState(uint subId) constant returns(Status status) {
-        return currentState(subscriptions[subId]);
+    function currentStatus(uint subId) constant returns(Status status) {
+        return currentStatus(subscriptions[subId]);
     }
 
-    function currentState(Subscription storage sub) internal constant returns(Status status) {
-        if (sub.onHold) {
+    function currentStatus(Subscription storage sub) internal constant returns(Status status) {
+        if (sub.onHoldSince>0) {
             return Status.ON_HOLD;
         } else if (sub.transferFrom==0) {
             return Status.OFFER;
-        } else if (sub.execCounter >= sub.maxExecTimes) {
-            return Status.CANCELLED;
+        } else if (now > sub.validUntil) {
+            return Status.CANCELED;
         } else if (sub.nextChargeOn <= now) {
             return Status.CHARGEABLE;
         } else {
@@ -135,74 +162,93 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         }
     }
 
-    function createSubscription(address _spender, uint256 _price, uint _chargePeriod, uint maxExecTimes, uint256 _depositValue, bytes _extraData) returns (uint subId) {
-        var depositId = _depositValue > 0
-                      ? createDeposit(_depositValue, _extraData)
-                      : 0;
+    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _validUntil, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId) {
         subscriptions[++subscriptionCounter] = Subscription ({
-            transferFrom : msg.sender,
-            transferTo : _spender,
+            transferFrom : 0,
+            transferTo   : msg.sender,
             pricePerHour : _price,
             nextChargeOn : 0,
             chargePeriod : _chargePeriod,
-            depositId : depositId,
-            startedOn : now,
-            maxExecTimes: 0,
-            execCounter : 0,
-            extraData : _extraData,
-            onHold : false
+            deposit      : _depositValue,
+    //ToDo: **** implement startOn
+            startOn      : _startOn,
+            validUntil   : _validUntil,
+            execCounter  : _offerLimit,
+            descriptor   : _descriptor,
+            onHoldSince  : 0
         });
-        SubscriptionListener(_spender).onSubscriptionChange(subId, Status.RUNNING, _extraData);
         return subscriptionCounter;
     }
 
-    function cancelSubscription(uint subId, bytes _paymentData) {
+    function acceptSubscriptionOffer(uint _offerId) returns (uint newSubId) {
+        Subscription storage sub = subscriptions[_offerId];
+        var depositId = sub.deposit > 0
+                      ? createDeposit(sub.deposit, sub.descriptor)
+                      : 0;
+        newSubId = ++subscriptionCounter;
+        Subscription storage newSub = subscriptions[newSubId] = sub;
+        newSub.transferFrom = msg.sender;
+        newSub.execCounter = 0;
+        newSub.startOn = now;
+        newSub.deposit = depositId;
+        assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.RUNNING, newSub.descriptor));
+        return newSubId;
+    }
+
+    function cancelSubscription(uint subId, bool forced) {
         Subscription storage sub = subscriptions[subId];
-        var spender = subscriptions[subId].transferTo;
-        subscriptions[subId].maxExecTimes = subscriptions[subId].execCounter;
-        if (msg.sender != spender) {
-            SubscriptionListener(spender).onSubscriptionChange(subId, Status.CANCELLED, _paymentData);
+        var _to = sub.transferTo;
+        sub.validUntil = max(now, sub.nextChargeOn);
+        _returnDeposit(sub.deposit, sub.transferFrom);
+        if (!forced && msg.sender != _to) {
+            //ToDo: handler throws?
+            PaymentListener(_to).onSubscriptionChange(subId, Status.CANCELED, "");
         }
     }
 
     // a service can allow/disallow hold/unhold
-    function holdSubscription (uint subId, bytes _paymentData) returns (bool success){
-        var spender = subscriptions[subId].transferTo;
-        if (msg.sender == spender
-            || SubscriptionListener(spender).onSubscriptionChange(subId, Status.ON_HOLD, _paymentData )) {
-                subscriptions[subId].onHold = true;
-                return true;
+    function holdSubscription (uint subId) returns (bool success){
+        Subscription storage sub = subscriptions[subId];
+        if (sub.onHoldSince > 0) { return true; }
+        var _to = sub.transferTo;
+        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, Status.ON_HOLD,"" )) {
+            sub.onHoldSince = now;
+            return true;
         } else { return false; }
     }
 
     // a service can allow/disallow hold/unhold
-    function unholdSubscription(uint subId, bytes _paymentData) returns (bool success) {
+    function unholdSubscription(uint subId) returns (bool success) {
         Subscription storage sub = subscriptions[subId];
-        if (msg.sender == sub.transferTo
-            || SubscriptionListener(sub.transferTo).onSubscriptionChange(subId, Status.RUNNING, _paymentData )) {
-                sub.onHold = false;
-                sub.nextChargeOn = now > sub.nextChargeOn
-                                 ? now + (now-sub.nextChargeOn) % sub.chargePeriod
-                                 : now;
-                return true;
+        if (sub.onHoldSince == 0) { return true; }
+        var _to = sub.transferTo;
+        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, Status.RUNNING,"")) {
+            sub.nextChargeOn += now - sub.onHoldSince;
+            sub.onHoldSince = 0;
+            return true;
         } else { return false; }
     }
 
 
     //ToDo:  return or throw?
-    function createDeposit(uint256 _value, bytes _extraData) returns (uint subId) {
+    function createDeposit(uint _value, bytes _descriptor) returns (uint subId) {
         if (balances[msg.sender] > _value) {
             balances[msg.sender] -= _value;
             deposits[++depositCounter] = Deposit ({
                 owner : msg.sender,
                 value : _value,
-                extraData : _extraData
+                descriptor : _descriptor
             });
             return depositCounter;
         } else { throw; }
     }
 
+    //ToDo: only sender allowed?
     function returnDeposit(uint depositId) {
+        return _returnDeposit(depositId, msg.sender);
+    }
+
+    function _returnDeposit(uint depositId, address returnTo) internal {
         if (deposits[depositId].owner == msg.sender) {
             balances[msg.sender] += deposits[depositId].value;
             delete deposits[depositId];
