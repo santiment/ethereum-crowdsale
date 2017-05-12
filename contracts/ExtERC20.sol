@@ -221,9 +221,9 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         } else { throw; }
     }
 
-    mapping (uint => Subscription) subscriptions;
-    mapping (uint => Deposit) deposits;
-    uint160 subscriptionCounter = 0;
-    uint160 depositCounter = 0;
+    mapping (uint => Subscription) public subscriptions;
+    mapping (uint => Deposit) public deposits;
+    uint160 public subscriptionCounter = 0;
+    uint160 public depositCounter = 0;
 
 }

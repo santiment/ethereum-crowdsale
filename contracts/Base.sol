@@ -32,6 +32,7 @@ contract Base {
 
     function assert(bool expr) { if (!expr) throw; }
 
+    event loga(address a);
 }
 
 
