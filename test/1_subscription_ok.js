@@ -1,16 +1,17 @@
-var BigNumber = require('bignumber.js');
+const BigNumber = require('bignumber.js');
 
-var chai = require('chai');
+const chai = require('chai');
 chai.use(require('chai-bignumber')());
-var assert = require('chai').assert
+const assert = require('chai').assert
 
-var Promise = require('bluebird');
-var TestableSNT = artifacts.require('TestableSNT');
-var SNT = artifacts.require('SNT');
-var TestableProvider = artifacts.require('TestableProvider');
+const Promise = require('bluebird');
+const TestableSNT = artifacts.require('TestableSNT');
+const SNT = artifacts.require('SNT');
+const TestableProvider = artifacts.require('TestableProvider');
 
-var web3UtilApi = require('web3/lib/utils/utils.js');
-var SolidityCoder = require('web3/lib/solidity/coder.js');
+const web3UtilApi = require('web3/lib/utils/utils.js');
+const SolidityCoder = require('web3/lib/solidity/coder.js');
+const BN = n => (new BigNumber(n)).toString();
 
 contract('snt', function(accounts){
     var snt;
@@ -77,10 +78,8 @@ contract('snt', function(accounts){
                 assert.equal(i+1,subId,'unexpected subscription id');
                 SUB_IDs.push(subId);
                 return snt.subscriptions(subId);
-            }).then(subArgs => {
-                var BN = n => (new BigNumber(n)).toString();
-                var sub = {};
-                subArgs.forEach((e,i) => { sub[abi_Subscription[i].name]=e });
+            }).then(subDef => {
+                var sub = parseSubscriptionDef(subDef);
                 assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
                 assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
                 assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
@@ -96,11 +95,38 @@ contract('snt', function(accounts){
         });
     });
 
-    [1,2,3,4].forEach( (offerId, i) => {
+    [1].forEach( (offerId, i) => {
         console.log(SUB_IDs);
         it('should accept an offer #'+offerId+' as a subscription', ()=>{
-            return snt.acceptSubscriptionOffer(offerId,{from:USER_01}).then(tx =>{
+            var user = USER_01;
+            return snt.acceptSubscriptionOffer(offerId,{from:user}).then(tx =>{
                 let [customer, service, offerId, subId] = parseLogEvent(tx,['address','address','uint','uint']);
+                return Promise.join(
+                    snt.subscriptions(offerId),
+                    snt.subscriptions(subId),
+                    (offerDef, subDef) => {
+                        var offer = parseSubscriptionDef(offerDef);
+                        var sub   = parseSubscriptionDef(subDef);
+                        console.log('offer>')
+                        console.log(offer)
+                        console.log('sub>')
+                        console.log(sub)
+                        console.log('sub.transferFrom>=====')
+                        console.log(sub.transferFrom)
+                        assert.equal(sub.transferFrom , user,                     'transferFrom must have unset for the offer')
+                        assert.equal(sub.transferTo       , offer.transferTo,        'transferTo must be set to provider contract')
+                        assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,        'price mismatch')
+
+                        //assert.equal(BN(sub.nextChargeOn) , BN(0),                     'nextChargeOn must have unset for the offer')
+                        assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
+                        //assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
+                        //assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
+                        //assert.equal(BN(sub.validUntil)   , BN(offerDef.validUntil),   'validUntil mismatch')
+                        assert.equal(BN(sub.execCounter)  , BN(0),   'execCounter <> offerLimit')
+                        assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
+                        assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
+
+                });
             });
         })
     });
@@ -111,6 +137,12 @@ contract('snt', function(accounts){
         return SolidityCoder
             .decodeParams(args, logs[0].data.replace('0x', ''))
             .map(e=>e.toString());
+    }
+
+    function parseSubscriptionDef(arrayDef){
+        var sub = {};
+        arrayDef.forEach((e,i) => { sub[abi_Subscription[i].name]=e });
+        return sub;
     }
 
 });
