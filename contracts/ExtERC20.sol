@@ -148,7 +148,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     function acceptSubscriptionOffer(uint _offerId) public returns (uint newSubId) {
         Subscription storage sub = subscriptions[_offerId];
-        var depositId = 0; sub.deposit > 0
+        var depositId = sub.deposit > 0
                       ? createDeposit(sub.deposit, sub.descriptor)
                       : 0;
         newSubId = ++subscriptionCounter;
