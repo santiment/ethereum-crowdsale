@@ -60,6 +60,7 @@ contract SubscriptionBase {
         bytes descriptor;
     }
 
+    event NewSubscription(address customer, address service, uint offerId, uint subId);
 }
 
 contract PaymentListener is SubscriptionBase {

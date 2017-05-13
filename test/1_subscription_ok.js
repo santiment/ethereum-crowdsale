@@ -5,12 +5,12 @@ chai.use(require('chai-bignumber')());
 var assert = require('chai').assert
 
 var Promise = require('bluebird');
-var TestableSNT = artifacts.require("TestableSNT");
-var SNT = artifacts.require("SNT");
-var TestableProvider = artifacts.require("TestableProvider");
+var TestableSNT = artifacts.require('TestableSNT');
+var SNT = artifacts.require('SNT');
+var TestableProvider = artifacts.require('TestableProvider');
 
-var web3UtilApi = require("web3/lib/utils/utils.js");
-var SolidityCoder = require("web3/lib/solidity/coder.js");
+var web3UtilApi = require('web3/lib/utils/utils.js');
+var SolidityCoder = require('web3/lib/solidity/coder.js');
 
 contract('snt', function(accounts){
     var snt;
@@ -22,7 +22,7 @@ contract('snt', function(accounts){
     const TOKEN_OWNER = accounts[6];
 
     const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER];
-    const ALL_BALANCES  = [100,      200,     300           ];
+    const ALL_BALANCES  = [200,      200,     300           ];
 
     before(function(){
         return TestableSNT
@@ -55,45 +55,62 @@ contract('snt', function(accounts){
         );
     });
 
-    const abi_Subscription = SNT.abi.filter(e => e.name==="subscriptions")[0].outputs;
-    const abi_createSubscriptionOffer = TestableProvider.abi.filter(e => e.name==="createSubscriptionOffer")[0].inputs;
+    const abi_Subscription = SNT.abi.filter(e => e.name==='subscriptions')[0].outputs;
+    const abi_createSubscriptionOffer = TestableProvider.abi.filter(e => e.name==='createSubscriptionOffer')[0].inputs;
 
-    var offerDefs = [
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:100, startOn:101, descriptor:web3.toHex("sub#1") },
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:100, startOn:101, descriptor:web3.toHex("sub#2") },
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:100, startOn:101, descriptor:web3.toHex("sub#3") },
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:100, startOn:101, descriptor:web3.toHex("sub#4") }
-    ].forEach( (offer, i) => {
+    const SUB_IDs = [];
+
+    const offerDefs = [
+        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#4') }
+    ].forEach( (offerDef, i) => {
         it('should create a valid offer #'+i, ()=>{
             return myProvider.createSubscriptionOffer(
-                offer.price, offer.chargePeriod, offer.validUntil, offer.offerLimit, offer.depositValue, offer.startOn, offer.descriptor
+                 offerDef.price, offerDef.chargePeriod, offerDef.validUntil, offerDef.offerLimit,
+                 offerDef.depositValue, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER})
             .then(tx => {
-                var logs = tx.receipt.logs;
-                assert.equal(1,tx.receipt.logs.length,'exact one log event exepected for this test call')
-                let [providerId, subId] = SolidityCoder
-                    .decodeParams(["address", "uint"], logs[0].data.replace("0x", ""))
-                    .map(e=>e.toString());
+                let [providerId, subId] = parseLogEvent(tx,['address', 'uint']);
                 assert.equal(myProvider.address,providerId,'provider id mismatch');
                 assert.equal(i+1,subId,'unexpected subscription id');
+                SUB_IDs.push(subId);
                 return snt.subscriptions(subId);
             }).then(subArgs => {
                 var BN = n => (new BigNumber(n)).toString();
                 var sub = {};
                 subArgs.forEach((e,i) => { sub[abi_Subscription[i].name]=e });
-                assert.equal(BN(sub.transferFrom) , BN(0),                  'transferFrom must have unset for the offer')
-                assert.equal(sub.transferTo       , myProvider.address,     'transferTo must be set to provider contract')
-                assert.equal(BN(sub.pricePerHour) , BN(offer.price),        'price mismatch')
-                assert.equal(BN(sub.nextChargeOn) , BN(0),                  'nextChargeOn must have unset for the offer')
-                assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
-                assert.equal(BN(sub.deposit)      , BN(offer.depositValue), 'deposit for offer must be a value')
-                assert.equal(BN(sub.startOn)      , BN(offer.startOn),      'startOn mismatch')
-                assert.equal(BN(sub.validUntil)   , BN(offer.validUntil),   'validUntil mismatch')
-                assert.equal(BN(sub.execCounter)  , BN(offer.offerLimit),   'execCounter <> offerLimit')
-                assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
-                assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created offer expected to be not onHold')
+                assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
+                assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
+                assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
+                assert.equal(BN(sub.nextChargeOn) , BN(0),                     'nextChargeOn must have unset for the offer')
+                assert.equal(BN(sub.chargePeriod) , BN(offerDef.chargePeriod), 'chargePeriod mismatch')
+                assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
+                assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
+                assert.equal(BN(sub.validUntil)   , BN(offerDef.validUntil),   'validUntil mismatch')
+                assert.equal(BN(sub.execCounter)  , BN(offerDef.offerLimit),   'execCounter <> offerLimit')
+                assert.equal(sub.descriptor       , offerDef.descriptor,       'descriptor mismatch')
+                assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
             });
         });
     });
+
+    [1,2,3,4].forEach( (offerId, i) => {
+        console.log(SUB_IDs);
+        it('should accept an offer #'+offerId+' as a subscription', ()=>{
+            return snt.acceptSubscriptionOffer(offerId,{from:USER_01}).then(tx =>{
+                let [customer, service, offerId, subId] = parseLogEvent(tx,['address','address','uint','uint']);
+            });
+        })
+    });
+
+    function parseLogEvent(tx, args) {
+        var logs = tx.receipt.logs;
+        assert.equal(1,tx.receipt.logs.length,'exact one log event exepected for this test call')
+        return SolidityCoder
+            .decodeParams(args, logs[0].data.replace('0x', ''))
+            .map(e=>e.toString());
+    }
 
 });

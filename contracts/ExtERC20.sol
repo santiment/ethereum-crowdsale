@@ -146,9 +146,9 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         return subscriptionCounter;
     }
 
-    function acceptSubscriptionOffer(uint _offerId) returns (uint newSubId) {
+    function acceptSubscriptionOffer(uint _offerId) public returns (uint newSubId) {
         Subscription storage sub = subscriptions[_offerId];
-        var depositId = sub.deposit > 0
+        var depositId = 0; sub.deposit > 0
                       ? createDeposit(sub.deposit, sub.descriptor)
                       : 0;
         newSubId = ++subscriptionCounter;
@@ -158,6 +158,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         newSub.startOn = now;
         newSub.deposit = depositId;
         assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.RUNNING, newSub.descriptor));
+        NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         return newSubId;
     }
 
@@ -198,7 +199,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     //ToDo:  return or throw?
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId) {
-        if (balances[msg.sender] > _value) {
+        if (balances[msg.sender] >= _value) {
             balances[msg.sender] -= _value;
             deposits[++depositCounter] = Deposit ({
                 owner : msg.sender,
@@ -206,7 +207,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
                 descriptor : _descriptor
             });
             return depositCounter;
-        } else { throw; }
+        } else { throw; } //ToDo:
     }
 
     //ToDo: only sender allowed?
