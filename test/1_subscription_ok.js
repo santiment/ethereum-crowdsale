@@ -95,11 +95,14 @@ contract('snt', function(accounts){
         });
     });
 
-    [1].forEach( (offerId, i) => {
-        console.log(SUB_IDs);
+    [{offerId: 1, validUntil:100, startOn: 0}]
+    .forEach( (acceptDef, i) => {
+        let {offerId, validUntil, startOn} = acceptDef;
         it('should accept an offer #'+offerId+' as a subscription', ()=>{
             var user = USER_01;
-            return snt.acceptSubscriptionOffer(offerId,{from:user}).then(tx =>{
+            return snt.acceptSubscriptionOffer(offerId, validUntil, startOn, {from:user}).then(tx =>{
+                const blockNow = web3.eth.getBlock(tx.receipt.blockNumber).timestamp;
+                if (startOn==0) startOn = blockNow;
                 let [customer, service, offerId, subId] = parseLogEvent(tx,['address','address','uint','uint']);
                 return Promise.join(
                     snt.subscriptions(offerId),
@@ -107,24 +110,17 @@ contract('snt', function(accounts){
                     (offerDef, subDef) => {
                         var offer = parseSubscriptionDef(offerDef);
                         var sub   = parseSubscriptionDef(subDef);
-                        console.log('offer>')
-                        console.log(offer)
-                        console.log('sub>')
-                        console.log(sub)
-                        console.log('sub.transferFrom>=====')
-                        console.log(sub.transferFrom)
-                        assert.equal(sub.transferFrom , user,                     'transferFrom must have unset for the offer')
-                        assert.equal(sub.transferTo       , offer.transferTo,        'transferTo must be set to provider contract')
-                        assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,        'price mismatch')
-
-                        //assert.equal(BN(sub.nextChargeOn) , BN(0),                     'nextChargeOn must have unset for the offer')
+                        assert.equal(sub.transferFrom , user,                       'transferFrom must have unset for the offer')
+                        assert.equal(sub.transferTo       , offer.transferTo,       'transferTo must be set to provider contract')
+                        assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
+                        assert.equal(BN(sub.nextChargeOn) , BN(startOn),            'nextChargeOn must have unset for the offer')
                         assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
                         //assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
-                        //assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
-                        //assert.equal(BN(sub.validUntil)   , BN(offerDef.validUntil),   'validUntil mismatch')
-                        assert.equal(BN(sub.execCounter)  , BN(0),   'execCounter <> offerLimit')
+                        assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
+                        assert.equal(BN(sub.validUntil)   , BN(validUntil),         'validUntil mismatch')
+                        assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
                         assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
-                        assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
+                        assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
 
                 });
             });

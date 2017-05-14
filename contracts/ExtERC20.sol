@@ -20,7 +20,7 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function paymentFrom(address _from, PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
 
     function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _validUntil, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
-    function acceptSubscriptionOffer(uint _offerId) returns (uint newSubId);
+    function acceptSubscriptionOffer(uint _offerId, uint _validUntil, uint _startOn) returns (uint newSubId);
     function cancelSubscription(uint subId, bool forced);
     function holdSubscription (uint subId) returns (bool success);
     function unholdSubscription(uint subId) returns (bool success);
@@ -146,7 +146,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         return subscriptionCounter;
     }
 
-    function acceptSubscriptionOffer(uint _offerId) public returns (uint newSubId) {
+    function acceptSubscriptionOffer(uint _offerId, uint _validUntil, uint _startOn) public returns (uint newSubId) {
         Subscription storage sub = subscriptions[_offerId];
         var depositId = sub.deposit > 0
                       ? createDeposit(sub.deposit, sub.descriptor)
@@ -155,8 +155,11 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         Subscription storage newSub = subscriptions[newSubId] = sub;
         newSub.transferFrom = msg.sender;
         newSub.execCounter = 0;
-        newSub.startOn = now;
+  //ToDo: check startOn >= now
+        newSub.nextChargeOn = newSub.startOn    = max(_startOn, now);
+        newSub.validUntil = _validUntil;
         newSub.deposit = depositId;
+  //ToDo: use offerId!!!
         assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.RUNNING, newSub.descriptor));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         return newSubId;
