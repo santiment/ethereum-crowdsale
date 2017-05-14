@@ -148,7 +148,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     function acceptSubscriptionOffer(uint _offerId, uint _validUntil, uint _startOn) public returns (uint newSubId) {
   //ToDo: do we really need an executionCounter in offer stored in SNT?
-  //      Should the Provider provide this advanced info about the offer?   
+  //      Should the Provider provide this advanced info about the offer?
         assert(subscriptions[_offerId].execCounter-- > 0);
 
         Subscription storage sub = subscriptions[_offerId];
@@ -213,6 +213,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
                 value : _value,
                 descriptor : _descriptor
             });
+            //NewDeposit(depositCounter, _value, msg.sender);
             return depositCounter;
         } else { throw; } //ToDo:
     }

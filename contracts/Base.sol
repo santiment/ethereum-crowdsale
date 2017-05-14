@@ -61,6 +61,7 @@ contract SubscriptionBase {
     }
 
     event NewSubscription(address customer, address service, uint offerId, uint subId);
+    event NewDeposit(uint depositId, uint value, address sender);
 }
 
 contract PaymentListener is SubscriptionBase {

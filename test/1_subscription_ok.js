@@ -109,6 +109,8 @@ contract('snt', function(accounts){
             }).then(tx => {
                 const blockNow = web3.eth.getBlock(tx.receipt.blockNumber).timestamp;
                 if (startOn==0) startOn = blockNow;
+                //ToDo NewDeposit
+                //let [customer, service, offerId, subId] = parseLogEvent(tx,abi_Subscription(NewDeposit));
                 let [customer, service, offerId, subId] = parseLogEvent(tx,['address','address','uint','uint']);
                 return Promise.join(
                     snt.subscriptions(offerId),
