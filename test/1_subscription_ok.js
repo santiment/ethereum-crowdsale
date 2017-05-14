@@ -12,6 +12,8 @@ const TestableProvider = artifacts.require('TestableProvider');
 const web3UtilApi = require('web3/lib/utils/utils.js');
 const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
+const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber||blockNumber).timestamp;
+const SUB_STATUS = {OFFER:0, RUNNING:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4}
 
 contract('snt', function(accounts){
     var snt;
@@ -23,7 +25,7 @@ contract('snt', function(accounts){
     const TOKEN_OWNER = accounts[6];
 
     const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER];
-    const ALL_BALANCES  = [200,      200,     300           ];
+    const ALL_BALANCES  = [2000000,  2000000, 2000000       ];
 
     before(function(){
         return TestableSNT
@@ -50,8 +52,8 @@ contract('snt', function(accounts){
             myProvider.snt(),
             myProvider.owner(),
             (_snt, _owner) => {
-                assert.equal(snt.address, _snt, 'snt token address mismatched');
-                assert.equal(PROVIDER_OWNER, _owner, 'owner address mismatched');
+                assert.equal(snt.address, _snt, 'snt token address mismatch');
+                assert.equal(PROVIDER_OWNER, _owner, 'owner address mismatch');
             }
         );
     });
@@ -62,19 +64,22 @@ contract('snt', function(accounts){
     //abi: Events
     const abi_NewDeposit = SNT.abi.find(e => e.name==='NewDeposit');
     const abi_NewSubscription = SNT.abi.find(e => e.name==='NewSubscription');
+    const abi_Payment = SNT.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
 
+//ToDo: SUB_IDs rework, because this ficture is not works for async tests
     const SUB_IDs = [];
 
     const offerDefs = [
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:100, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:10, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:10, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:10, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:10, chargePeriod:10, validUntil:101, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         it('should create a valid offer #'+i, ()=>{
+            var now = ethNow();
             return myProvider.createSubscriptionOffer(
-                 offerDef.price, offerDef.chargePeriod, offerDef.validUntil, offerDef.offerLimit,
+                 offerDef.price, offerDef.chargePeriod, now + offerDef.validUntil, offerDef.offerLimit,
                  offerDef.depositValue, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER})
             .then(tx => {
@@ -82,20 +87,24 @@ contract('snt', function(accounts){
                 assert.equal(myProvider.address,providerId,'provider id mismatch');
                 assert.equal(i+1,subId,'unexpected subscription id');
                 SUB_IDs.push(subId);
-                return snt.subscriptions(subId);
-            }).then(subDef => {
-                var sub = parseSubscriptionDef(subDef);
-                assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
-                assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
-                assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
-                assert.equal(BN(sub.nextChargeOn) , BN(0),                     'nextChargeOn must have unset for the offer')
-                assert.equal(BN(sub.chargePeriod) , BN(offerDef.chargePeriod), 'chargePeriod mismatch')
-                assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
-                assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
-                assert.equal(BN(sub.validUntil)   , BN(offerDef.validUntil),   'validUntil mismatch')
-                assert.equal(BN(sub.execCounter)  , BN(offerDef.offerLimit),   'execCounter <> offerLimit')
-                assert.equal(sub.descriptor       , offerDef.descriptor,       'descriptor mismatch')
-                assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
+                return Promise.join(
+                    snt.subscriptions(subId),
+                    snt.currentStatus(subId),
+                    (subDef, status) => {
+                        var sub = parseSubscriptionDef(subDef);
+                        assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
+                        assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
+                        assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
+                        assert.equal(BN(sub.nextChargeOn) , BN(0),                     'nextChargeOn must have unset for the offer')
+                        assert.equal(BN(sub.chargePeriod) , BN(offerDef.chargePeriod), 'chargePeriod mismatch')
+                        assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
+                        assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
+                        assert.equal(BN(sub.validUntil)   , BN(now+offerDef.validUntil), 'validUntil mismatch')
+                        assert.equal(BN(sub.execCounter)  , BN(offerDef.offerLimit),   'execCounter <> offerLimit')
+                        assert.equal(sub.descriptor       , offerDef.descriptor,       'descriptor mismatch')
+                        assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
+                        assert.equal(SUB_STATUS.OFFER     , status,                    'invalid offer state');
+                    });
             });
         });
     });
@@ -103,6 +112,7 @@ contract('snt', function(accounts){
     [{offerId: 1, validUntil:100, startOn: 0},
      {offerId: 2, validUntil:100, startOn: 0}
     ].forEach( (acceptDef, i) => {
+        var now;
         let {offerId, validUntil, startOn} = acceptDef;
         it('should accept an offer #'+offerId+' as a new subscription', ()=>{
             var user = USER_01;
@@ -110,29 +120,31 @@ contract('snt', function(accounts){
             return snt.subscriptions(offerId).then(offerDef => {
                 var offer = parseSubscriptionDef(offerDef);
                 offerExecCounter = offer.execCounter;
-                return  snt.acceptSubscriptionOffer(offerId, validUntil, startOn, {from:user});
+                now = ethNow();
+                return  snt.acceptSubscriptionOffer(offerId, now+validUntil, startOn, {from:user});
             }).then(tx => {
-                const blockNow = web3.eth.getBlock(tx.receipt.blockNumber).timestamp;
+                const blockNow = ethNow(tx.receipt.blockNumber);
                 if (startOn==0) startOn = blockNow;
                 let [depositId, value, sender] = parseLogEvent(tx,abi_NewDeposit)
                 let [customer, service, offerId, subId] = parseLogEvent(tx,abi_NewSubscription);
                 return Promise.join(
                     snt.subscriptions(offerId),
                     snt.subscriptions(subId),
-                    (offerDef, subDef) => {
+                    snt.currentStatus(subId),
+                    (offerDef, subDef, status) => {
                         var offer = parseSubscriptionDef(offerDef);
                         var sub   = parseSubscriptionDef(subDef);
                         //check the offer
-                        assert.equal(offer.execCounter , offerExecCounter-1,        'offer.execCounter must decrease by 1')
+                        assert.equal(offer.execCounter    , offerExecCounter-1,     'offer.execCounter must decrease by 1')
                         //check the new subscription
-                        assert.equal(sub.transferFrom , user,                       'transferFrom must have unset for the offer')
-                        assert.equal(sub.transferTo       , offer.transferTo,       'transferTo must be set to provider contract')
+                        assert.equal(sub.transferFrom     , user,                   'transferFrom must have unset for the offer')
+                        assert.equal(sub.transferTo       , offer.transferTo,       'msg.sender expected as sub.transferTo')
                         assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
-                        assert.equal(BN(sub.nextChargeOn) , BN(startOn),            'nextChargeOn must have unset for the offer')
+                        assert.equal(BN(sub.nextChargeOn) , BN(startOn),            'nextChargeOn mismatch')
                         assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
                         assert.equal(BN(sub.deposit)      , BN(depositId),          'deposit for new sub mismatch')
                         assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
-                        assert.equal(BN(sub.validUntil)   , BN(validUntil),         'validUntil mismatch')
+                        assert.equal(BN(sub.validUntil)   , BN(now+validUntil),         'validUntil mismatch')
                         assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
                         assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
                         assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
@@ -141,6 +153,36 @@ contract('snt', function(accounts){
             });
         })
     });
+
+    [{subId: 5, times:1, USER_01},
+     {subId: 6, times:1, USER_01}
+   ].forEach( (chargeDef, i) => {
+        let {subId, times, user} = chargeDef;
+        while(--times>=0) {
+            it('charging subscription#'+subId+'; more charges: '+times, ()=>{
+                //web3.eth.increaseTime(10);
+                var sub0;
+                return snt.currentStatus(subId).then(statusId=>{
+                    assert.equal(SUB_STATUS.CHARGEABLE, statusId.toNumber(), 'unexpected state: '+statusId);
+                    return snt.subscriptions(subId);
+                }).then(subDef0 => {
+                    sub0 = parseSubscriptionDef(subDef0);
+                    return  snt.executeSubscription(subId, {from:USER_01});
+                }).then(tx => {
+                    let [_from,  _to, _value, _fee, caller, status, _subId] = parseLogEvent(tx,abi_Payment);
+                    assert.equal(0,status,'payment failed with status: ')
+                    assert.equal(subId, _subId,' subscription id mismatch')
+                    return snt.subscriptions(subId);
+                }).then(subDef1 => {
+                    sub1 = parseSubscriptionDef(subDef1);
+                    assert.equal(parseInt(sub1.execCounter)    ,parseInt(sub0.execCounter)+1,  'execCounter must increase')
+                });
+            })
+        }
+    });
+
+
+
 
     function parseLogEvent(tx, abi) {
         var typeList = abi.inputs.map(e=>e.type);
@@ -157,7 +199,7 @@ contract('snt', function(accounts){
 
     function parseSubscriptionDef(arrayDef){
         var sub = {};
-        arrayDef.forEach((e,i) => { sub[abi_Subscription[i].name]=e });
+        arrayDef.forEach((e,i) => sub[abi_Subscription[i].name]=e);
         return sub;
     }
 

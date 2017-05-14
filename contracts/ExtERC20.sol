@@ -68,9 +68,8 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
             if (success) {
                 sub.nextChargeOn  = max(sub.nextChargeOn, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
+                assert (PaymentListener(_to).onSubExecuted(subId));
             }
-
-            assert (PaymentListener(_to).onSubExecuted(subId));
         }
     }
 
@@ -82,7 +81,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
     function _fulfillPreapprovedPayment(address _from, address _to, uint _value) internal returns (bool success) {
         success = _from != msg.sender && allowed[_from][msg.sender] >= _value;
         if (!success) {
-            Payment(_from, _to, _value, _fee(_value), msg.sender, PaymentStatus.BALANCE_ERROR, 0);
+            Payment(_from, _to, _value, _fee(_value), msg.sender, PaymentStatus.APPROVAL_ERROR, 0);
         } else {
             success = _fulfillPayment(_from, _to, _value, 0);
             if (success) {
