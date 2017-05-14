@@ -56,8 +56,13 @@ contract('snt', function(accounts){
         );
     });
 
-    const abi_Subscription = SNT.abi.filter(e => e.name==='subscriptions')[0].outputs;
-    const abi_createSubscriptionOffer = TestableProvider.abi.filter(e => e.name==='createSubscriptionOffer')[0].inputs;
+    //abi: func calls
+    const abi_Subscription = SNT.abi.find(e => e.name==='subscriptions').outputs;
+    
+    //abi: Events
+    const abi_NewDeposit = SNT.abi.find(e => e.name==='NewDeposit');
+    const abi_NewSubscription = SNT.abi.find(e => e.name==='NewSubscription');
+    const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
 
     const SUB_IDs = [];
 
@@ -73,7 +78,7 @@ contract('snt', function(accounts){
                  offerDef.depositValue, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER})
             .then(tx => {
-                let [providerId, subId] = parseLogEvent(tx,['address', 'uint']);
+                let [providerId, subId] = parseLogEvent(tx,abi_NewOffer);
                 assert.equal(myProvider.address,providerId,'provider id mismatch');
                 assert.equal(i+1,subId,'unexpected subscription id');
                 SUB_IDs.push(subId);
@@ -109,9 +114,8 @@ contract('snt', function(accounts){
             }).then(tx => {
                 const blockNow = web3.eth.getBlock(tx.receipt.blockNumber).timestamp;
                 if (startOn==0) startOn = blockNow;
-                //ToDo NewDeposit
-                //let [customer, service, offerId, subId] = parseLogEvent(tx,abi_Subscription(NewDeposit));
-                let [customer, service, offerId, subId] = parseLogEvent(tx,['address','address','uint','uint']);
+                let [depositId, value, sender] = parseLogEvent(tx,abi_NewDeposit)
+                let [customer, service, offerId, subId] = parseLogEvent(tx,abi_NewSubscription);
                 return Promise.join(
                     snt.subscriptions(offerId),
                     snt.subscriptions(subId),
@@ -138,11 +142,16 @@ contract('snt', function(accounts){
         })
     });
 
-    function parseLogEvent(tx, args) {
-        var logs = tx.receipt.logs;
-        assert.equal(1,tx.receipt.logs.length,'exact one log event exepected for this test call')
+    function parseLogEvent(tx, abi) {
+        var typeList = abi.inputs.map(e=>e.type);
+        var signature = abi.name + '('+typeList.join(',')+')';
+        var hash = web3.sha3(signature);
+        //Workaround: some web3 implementations return hash without leading '0x'
+        if (!hash.startsWith('0x')) hash = '0x' + hash;
+        var logs = tx.receipt.logs.filter(log => hash == log.topics[0]);
+        assert (logs.length == 1,'log not found or abmbigous');
         return SolidityCoder
-            .decodeParams(args, logs[0].data.replace('0x', ''))
+            .decodeParams(typeList, logs[0].data.replace('0x', ''))
             .map(e=>e.toString());
     }
 

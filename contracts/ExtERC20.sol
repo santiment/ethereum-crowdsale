@@ -213,7 +213,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
                 value : _value,
                 descriptor : _descriptor
             });
-            //NewDeposit(depositCounter, _value, msg.sender);
+            NewDeposit(depositCounter, _value, msg.sender);
             return depositCounter;
         } else { throw; } //ToDo:
     }
