@@ -58,7 +58,7 @@ contract('snt', function(accounts){
 
     //abi: func calls
     const abi_Subscription = SNT.abi.find(e => e.name==='subscriptions').outputs;
-    
+
     //abi: Events
     const abi_NewDeposit = SNT.abi.find(e => e.name==='NewDeposit');
     const abi_NewSubscription = SNT.abi.find(e => e.name==='NewSubscription');
@@ -130,7 +130,7 @@ contract('snt', function(accounts){
                         assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
                         assert.equal(BN(sub.nextChargeOn) , BN(startOn),            'nextChargeOn must have unset for the offer')
                         assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
-                        //assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
+                        assert.equal(BN(sub.deposit)      , BN(depositId),          'deposit for new sub mismatch')
                         assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
                         assert.equal(BN(sub.validUntil)   , BN(validUntil),         'validUntil mismatch')
                         assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
