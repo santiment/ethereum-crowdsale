@@ -95,12 +95,18 @@ contract('snt', function(accounts){
         });
     });
 
-    [{offerId: 1, validUntil:100, startOn: 0}]
-    .forEach( (acceptDef, i) => {
+    [{offerId: 1, validUntil:100, startOn: 0},
+     {offerId: 2, validUntil:100, startOn: 0}
+    ].forEach( (acceptDef, i) => {
         let {offerId, validUntil, startOn} = acceptDef;
-        it('should accept an offer #'+offerId+' as a subscription', ()=>{
+        it('should accept an offer #'+offerId+' as a new subscription', ()=>{
             var user = USER_01;
-            return snt.acceptSubscriptionOffer(offerId, validUntil, startOn, {from:user}).then(tx =>{
+            var offerExecCounter;
+            return snt.subscriptions(offerId).then(offerDef => {
+                var offer = parseSubscriptionDef(offerDef);
+                offerExecCounter = offer.execCounter;
+                return  snt.acceptSubscriptionOffer(offerId, validUntil, startOn, {from:user});
+            }).then(tx => {
                 const blockNow = web3.eth.getBlock(tx.receipt.blockNumber).timestamp;
                 if (startOn==0) startOn = blockNow;
                 let [customer, service, offerId, subId] = parseLogEvent(tx,['address','address','uint','uint']);
@@ -110,6 +116,9 @@ contract('snt', function(accounts){
                     (offerDef, subDef) => {
                         var offer = parseSubscriptionDef(offerDef);
                         var sub   = parseSubscriptionDef(subDef);
+                        //check the offer
+                        assert.equal(offer.execCounter , offerExecCounter-1,        'offer.execCounter must decrease by 1')
+                        //check the new subscription
                         assert.equal(sub.transferFrom , user,                       'transferFrom must have unset for the offer')
                         assert.equal(sub.transferTo       , offer.transferTo,       'transferTo must be set to provider contract')
                         assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
