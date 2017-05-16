@@ -17,18 +17,18 @@ describe('testing testRPC infrastructure', () => {
     const snapshotNrStack  = [];  //workaround for broken evm_revert without shapshot provided.
 
     it('test evm_mine', () => {
-      var startNr = web3.eth.blockNumber;
-      return evm_mine()
-          .then(r => {
-              var lastNr = web3.eth.blockNumber;
-              assert.equal(startNr + 1, lastNr, 'exact one mined block expected!');
-          })
+        let startNr = web3.eth.blockNumber;
+        return evm_mine()
+            .then(r => {
+                let lastNr = web3.eth.blockNumber;
+                assert.equal(startNr + 1, lastNr, 'exact one mined block expected!');
+            })
     })
 
     it('test evm_mine after evm_increaseTime', () => {
         const TOLERANCE_SEC = 3;
         const DELAY_SEC = 1000;
-        var t_start = ethNow();
+        let t_start = ethNow();
         return evm_increaseTime(DELAY_SEC)
             .then(evm_mine)
             .then(r => {
@@ -37,18 +37,18 @@ describe('testing testRPC infrastructure', () => {
     })
 
     it('test evm_snapshot / evm_revert', () => {
-      var startNr = web3.eth.blockNumber;
-      return evm_snapshot()
-          .then(evm_mine)
-          .then(r => {
-            var lastNr = web3.eth.blockNumber;
-            assert.equal(startNr + 1, lastNr, 'exact one mined block expected!');
-            return evm_revert()
-          })
-          .then(r => {
-              var lastNr = web3.eth.blockNumber;
-              assert.equal(startNr, lastNr, 'expected reversed back to initial block number!');
-          })
+        let startNr = web3.eth.blockNumber;
+        return evm_snapshot()
+            .then(evm_mine)
+            .then(r => {
+              let lastNr = web3.eth.blockNumber;
+              assert.equal(startNr + 1, lastNr, 'exact one mined block expected!');
+              return evm_revert()
+            })
+            .then(r => {
+                let lastNr = web3.eth.blockNumber;
+                assert.equal(startNr, lastNr, 'expected reversed back to initial block number!');
+            })
     })
 
 });
