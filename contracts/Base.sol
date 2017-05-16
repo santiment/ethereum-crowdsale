@@ -37,7 +37,7 @@ contract Base {
 
 
 contract SubscriptionBase {
-    enum Status {OFFER, RUNNING, CHARGEABLE, ON_HOLD, CANCELED}
+    enum Status {OFFER, PAID, CHARGEABLE, ON_HOLD, EXPIRED}
 
     struct Subscription {
         address transferFrom;

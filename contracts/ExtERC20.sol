@@ -118,12 +118,12 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
             return Status.ON_HOLD;
         } else if (sub.transferFrom==0) {
             return Status.OFFER;
-        } else if (now > sub.validUntil) {
-            return Status.CANCELED;
+        } else if (sub.nextChargeOn >= sub.validUntil) {
+            return Status.EXPIRED;
         } else if (sub.nextChargeOn <= now) {
             return Status.CHARGEABLE;
         } else {
-            return Status.RUNNING;
+            return Status.PAID;
         }
     }
 
@@ -163,7 +163,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         newSub.validUntil = _validUntil;
         newSub.deposit = depositId;
   //ToDo: use offerId!!!
-        assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.RUNNING, newSub.descriptor));
+        assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.PAID, newSub.descriptor));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         return newSubId;
     }
@@ -175,7 +175,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         _returnDeposit(sub.deposit, sub.transferFrom);
         if (!forced && msg.sender != _to) {
             //ToDo: handler throws?
-            PaymentListener(_to).onSubscriptionChange(subId, Status.CANCELED, "");
+            PaymentListener(_to).onSubscriptionChange(subId, Status.EXPIRED, "");
         }
     }
 
@@ -195,7 +195,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince == 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, Status.RUNNING,"")) {
+        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, Status.PAID,"")) {
             sub.nextChargeOn += now - sub.onHoldSince;
             sub.onHoldSince = 0;
             return true;
