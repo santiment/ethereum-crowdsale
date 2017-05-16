@@ -4,10 +4,10 @@ describe('testing testRPC infrastructure', () => {
 
     const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber || blockNumber).timestamp;
     const web3_sendAsync = Promise.promisify(web3.currentProvider.sendAsync, {context: web3.currentProvider});
-    const evm_call = (method, params) => web3_sendAsync({
+    const evm_call = (method, params=[]) => web3_sendAsync({
         jsonrpc: "2.0",
         method: method,
-        params: params||[],
+        params: params,
         id: new Date().getTime()
     })
     const evm_mine         = ()     => evm_call('evm_mine')
