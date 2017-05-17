@@ -163,7 +163,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         newSub.transferFrom = msg.sender;
         newSub.execCounter = 0;
   //ToDo: check startOn >= now
-        newSub.nextChargeOn = newSub.startOn    = max(_startOn, now);
+        newSub.nextChargeOn = newSub.startOn = max(_startOn, now);
         newSub.validUntil = _validUntil;
         newSub.deposit = depositId;
   //ToDo: use offerId!!!
