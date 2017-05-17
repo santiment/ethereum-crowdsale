@@ -1,6 +1,6 @@
 const Promise = require('bluebird');
 
-describe('testing testRPC infrastructure', () => {
+describe('testing testRPC infrastructure', function () {
 
     const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber || blockNumber).timestamp;
     const web3_sendAsync = Promise.promisify(web3.currentProvider.sendAsync, {context: web3.currentProvider});
@@ -16,7 +16,7 @@ describe('testing testRPC infrastructure', () => {
     const evm_revert       = (num)  => evm_call('evm_revert', [num || snapshotNrStack.pop()]);
     const snapshotNrStack  = [];  //workaround for broken evm_revert without shapshot provided.
 
-    it('test evm_mine', () => {
+    it('test evm_mine', function () {
         let startNr = web3.eth.blockNumber;
         return evm_mine()
             .then(r => {
@@ -25,7 +25,7 @@ describe('testing testRPC infrastructure', () => {
             })
     })
 
-    it('test evm_mine after evm_increaseTime', () => {
+    it('test evm_mine after evm_increaseTime', function() {
         const TOLERANCE_SEC = 3;
         const DELAY_SEC = 1000;
         let t_start = ethNow();
@@ -36,7 +36,7 @@ describe('testing testRPC infrastructure', () => {
             })
     })
 
-    it('test evm_snapshot / evm_revert', () => {
+    it('test evm_snapshot / evm_revert', function() {
         let startNr = web3.eth.blockNumber;
         return evm_snapshot()
             .then(evm_mine)

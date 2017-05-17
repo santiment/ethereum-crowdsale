@@ -59,7 +59,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     after(()=>evm_revert)
 
-    it('snt should be correctly initialized',()=>{
+    it('snt should be correctly initialized', function() {
         return Promise.all(
             ALL_ACCOUNTS.map(account=>snt.balanceOf(account))
         ).then(bn_balances => {
@@ -69,7 +69,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         })
     });
 
-    it('TestableProvider should be correctly initialized',()=>{
+    it('TestableProvider should be correctly initialized', function() {
         return Promise.join(
             myProvider.snt(),
             myProvider.owner(),
@@ -98,7 +98,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         { price:$nt(10), chargePeriod:10, validUntil:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
         { price:$nt(10), chargePeriod:10, validUntil:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
-        it('should create a valid offer #'+i, ()=>{
+        it('should create a valid offer #'+i, function() {
             var now = ethNow();
             return myProvider.createSubscriptionOffer(
                  offerDef.price, offerDef.chargePeriod, now + offerDef.validUntil, offerDef.offerLimit,
@@ -136,7 +136,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     ].forEach( (acceptDef, i) => {
         var now;
         let {offerId, validUntil, startOn} = acceptDef;
-        it('should accept an offer #'+offerId+' as a new subscription', ()=>{
+        it('should accept an offer #'+offerId+' as a new subscription', function() {
             var user = USER_01;
             var offerExecCounter;
             return snt.subscriptions(offerId).then(offerDef => {
@@ -185,7 +185,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        [6, USER_01, SUB_STATUS.PAID      , AUTO     , SUB_STATUS.EXPIRED],
     ].forEach( (chargeDef, i) => {
         let [subId, user, statusBefore, waitSec, statusAfter] = chargeDef;
-        it('charging subscription#'+subId, ()=>{
+        it('charging subscription#'+subId, function() {
           let s0, s1, tx;
           return collectPaymentData(subId)
               .then(paymentInfo =>{
@@ -198,7 +198,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         evm_increaseTime(delay);
                     }
                     //FUNCTION UNDER TEST: CHARGE SUBSCRIPTION
-                    assert.isOk(s0.balanceFrom.greaterThanOrEqualTo(s0.amountToPay), 'PRE_CHECK: unsufficient balance sender');
+                    assert.isOk(s0.balanceFrom.greaterThanOrEqualTo(s0.amountToPay), 'PRE_CHECK: unsufficient sender balance');
                     if (user === __FROM)    user = s0.sub.transferFrom;
                     else if (user === __TO) user = s0.sub.transferTo;
                     return snt.executeSubscription(subId, {from:user});
