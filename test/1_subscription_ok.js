@@ -15,6 +15,7 @@ const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber||blockNumber).timestamp;
 const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, EXPIRED:4}
 const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'EXPIRED'}
+const SECONDS_IN_HOUR = 60*60;//
 
 contract('snt', function(accounts){
     var snt;
@@ -23,10 +24,11 @@ contract('snt', function(accounts){
     const USER_01 = accounts[1];
     const USER_02 = accounts[2];
     const PROVIDER_OWNER = accounts[5];
-    const TOKEN_OWNER = accounts[6];
-
-    const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER];
-    const ALL_BALANCES  = [2000000,  2000000, 2000000       ];
+    const PLATFORM_OWNER = accounts[6];
+    const $nt = amount => web3.toWei(amount,'finney')
+    const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER, PLATFORM_OWNER];
+    const ALL_BALANCES  = [$nt(200),  $nt(200),     $nt(200),           0];
+    var PLATFORM_FEE_PER_10000=1;
 
 //============ extract into separate module ================
 const web3_sendAsync = Promise.promisify(web3.currentProvider.sendAsync, {context: web3.currentProvider});
@@ -45,7 +47,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     before(function(){
         return evm_snapshot().then(() => {
-            return TestableSNT.new(ALL_ACCOUNTS, ALL_BALANCES, {from:CREATOR})
+            return TestableSNT.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER})
             .then( _instance =>{
                 snt = _instance;
                 return TestableProvider
@@ -61,8 +63,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         return Promise.all(
             ALL_ACCOUNTS.map(account=>snt.balanceOf(account))
         ).then(bn_balances => {
-            var balances = bn_balances.map(e=>e.toNumber());
-            assert.deepEqual(ALL_BALANCES, balances, 'unexpected initial balances');
+            var act_balances = bn_balances.map(e=>e.toString());
+            var exp_balances = ALL_BALANCES.map(e=>e.toString());
+            assert.deepEqual(act_balances, exp_balances, 'unexpected initial balances');
         })
     });
 
@@ -90,10 +93,10 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const SUB_IDs = [];
 
     const offerDefs = [
-        { price:10, chargePeriod:10, validUntil:41, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:10, chargePeriod:10, validUntil:41, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:10, chargePeriod:10, validUntil:51, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:10, chargePeriod:10, validUntil:51, offerLimit:5, depositValue:10, startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:$nt(10), chargePeriod:10, validUntil:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:$nt(10), chargePeriod:10, validUntil:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:$nt(10), chargePeriod:10, validUntil:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:$nt(10), chargePeriod:10, validUntil:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         it('should create a valid offer #'+i, ()=>{
             var now = ethNow();
@@ -173,40 +176,69 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         })
     });
 
-    [{subId: 5, times:1, USER_01},
-     {subId: 6, times:3, USER_01}
-   ].forEach( (chargeDef, i) => {
-        let {subId, times, user} = chargeDef;
-        while(--times>=0) {
-            it('charging subscription#'+subId+'; more charges: '+times, ()=>{
-                //web3.eth.increaseTime(10);
-                var sub0;
-                return Promise.join(
-                    snt.currentStatus(subId),
-                    snt.subscriptions(subId),
-                    (bn_statusId, subDef) => {
-                        var sub = parseSubscriptionDef(subDef);
-                        var statusId = bn_statusId.toNumber();
-                        assert.isOk(statusId == SUB_STATUS.CHARGEABLE || statusId == SUB_STATUS.PAID, ' unexpected subscription state: '+statusId);
-                        return statusId == SUB_STATUS.PAID
-                             ? evm_increaseTime(sub.nextChargeOn.minus(ethNow()).toNumber()+15)
-                                .then(evm_mine)
-                                .then(()=>snt.subscriptions(subId))
-                             : snt.subscriptions(subId)
-                }).then(subDef0 => {
-                    sub0 = parseSubscriptionDef(subDef0);
-                    return  snt.executeSubscription(subId, {from:USER_01});
-                }).then(tx => {
-                    let [_from,  _to, _value, _fee, caller, status, _subId] = parseLogEvent(tx,abi_Payment);
-                    assert.equal(0,status,'payment failed with status: ')
-                    assert.equal(subId, _subId,' subscription id mismatch')
-                    return snt.subscriptions(subId);
-                }).then(subDef1 => {
-                    sub1 = parseSubscriptionDef(subDef1);
-                    assert.equal(parseInt(sub1.execCounter)    ,parseInt(sub0.execCounter)+1,  'execCounter must increase')
-                });
-            })
-        }
+    const SKIP_CHARGE = '++SKIP CHARGE++';
+    const NO_WAIT = 0, AUTO = -1;
+    const __FROM  =-1, __TO = -2;
+    [  [5, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT  , SUB_STATUS.PAID],
+       [6, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT  , SUB_STATUS.PAID],
+       [6,  __FROM, SUB_STATUS.PAID      , AUTO     , SUB_STATUS.PAID],
+       [6, USER_01, SUB_STATUS.PAID      , AUTO     , SUB_STATUS.EXPIRED],
+    ].forEach( (chargeDef, i) => {
+        let [subId, user, statusBefore, waitSec, statusAfter] = chargeDef;
+        it('charging subscription#'+subId, ()=>{
+          let s0, s1, tx;
+          return collectPaymentData(subId)
+              .then(paymentInfo =>{
+                  s0 = paymentInfo;
+                //check preconditions
+                assert.equal(SUB_STATUS_REV[s0.status], SUB_STATUS_REV[statusBefore], 'PRE_CHECK: unexpected subscription state before subscription charge: ');
+                if ([SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID].includes(s0.status)) {
+                    if (waitSec != NO_WAIT) {
+                        let delay = waitSec != AUTO ? waitSec : s0.sub.nextChargeOn.minus(ethNow()).toNumber()+1;
+                        evm_increaseTime(delay);
+                    }
+                    //FUNCTION UNDER TEST: CHARGE SUBSCRIPTION
+                    assert.isOk(s0.balanceFrom.greaterThanOrEqualTo(s0.amountToPay), 'PRE_CHECK: unsufficient balance sender');
+                    if (user === __FROM)    user = s0.sub.transferFrom;
+                    else if (user === __TO) user = s0.sub.transferTo;
+                    return snt.executeSubscription(subId, {from:user});
+                } else {
+                    throw new Error(SKIP_CHARGE);
+                }
+            }).then(_tx => {
+                tx = _tx;
+                return collectPaymentData(subId);
+            }).then(paymentInfo =>{
+                s1 = paymentInfo;
+                //assert subscription status
+                assert.equal( SUB_STATUS_REV[s1.status], SUB_STATUS_REV[statusAfter], 'POST_CHECK: unexpected subscription after subscription charge: ');
+                //assert Payment event
+                let [_from,  _to, _value, _fee, _caller, _returnCode, _subId] = parseLogEvent(tx,abi_Payment);
+                assert.equal(0, _returnCode,'payment failed with status: ')
+                assert.equal(subId, _subId,' subscription id mismatch')
+                assert.equal(_from, s0.sub.transferFrom,'infalid subscription field "transferFrom"')
+                assert.equal(_to, s0.sub.transferTo,'invalid subscription field "transferTo"')
+                assert.equal(BN(_value), BN(s0.amountToPay),' invalid value')
+                assert.equal(BN(_fee), BN(_value.dividedToIntegerBy(PLATFORM_FEE_PER_10000*10000)),'invalid payment fee')
+                assert.equal(_caller, user,'payment caller mismatch')
+                //assert subscription invariants
+                assertSubscriptionEqualBut(s0.sub, s1.sub, ['nextChargeOn','execCounter']);
+                //assert subscription changes
+                let expected_nextChargeOn = new BigNumber(s0.sub.nextChargeOn).plus(s0.sub.chargePeriod);
+                assert.equal(BN(s1.sub.nextChargeOn)        , BN(expected_nextChargeOn), 'unexpected changes in field "nextChargeOn"')
+                assert.equal(BN(s0.sub.execCounter.plus(1)) , BN(s1.sub.execCounter)   , 'unexpected changes in field "execCounter"')
+                //assert balance changes
+                let expected_balanceFrom          = s0.balanceFrom.minus(s0.amountToPay);
+                let expected_balanceTo            = s0.balanceTo.plus(s0.amountToPay).minus(_fee);
+                let expected_balancePlatformOwner = s0.balancePlatformOwner.plus(_fee);
+                assert.equal(BN(s1.balanceFrom),          BN(expected_balanceFrom) ,'invalid FROM balance changes')
+                assert.equal(BN(s1.balanceTo),            BN(expected_balanceTo)   ,'invalid TO balance changes')
+                assert.equal(BN(s1.balancePlatformOwner), BN(expected_balancePlatformOwner),'invalid OWNER balance changes')
+            }).catch(err=>{
+                if (err.message!=SKIP_CHARGE)
+                    throw err;
+            });
+        })
     });
 
     function parseLogEvent(tx, abi) {
@@ -219,13 +251,44 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         assert (logs.length == 1,'log not found or abmbigous');
         return SolidityCoder
             .decodeParams(typeList, logs[0].data.replace('0x', ''))
-            .map(e=>e.toString());
     }
 
     function parseSubscriptionDef(arrayDef){
-        var sub = {};
+        let sub = new Map();
         arrayDef.forEach((e,i) => sub[abi_Subscription[i].name]=e);
         return sub;
     }
+
+    function assertSubscriptionEqualBut(sub0, sub1, exceptFields) {
+      let EXPECT_CHANGES_IN = ['execCounter','nextChargeOn'];
+      for(key in sub0.keys()) {
+          console.log('============================');
+          console.log(key);
+          if (!(key in exceptFields)) {
+              assert.equal(BN(sub0[key]), BN(sub1[key]), 'unexpected changes in field "'+key+'"'  )
+          }
+      }
+    }
+
+    function collectPaymentData(subId){
+      let R = new Map();
+      return Promise.all([
+          snt.currentStatus(subId),
+          snt.subscriptions(subId)
+      ]).then(([bn_statusId, subDef]) => {
+          R.sub = parseSubscriptionDef(subDef);
+          R.status = bn_statusId.toNumber();
+          R.amountToPay = R.sub.pricePerHour.mul(R.sub.chargePeriod).dividedToIntegerBy(SECONDS_IN_HOUR);
+          return Promise.all([
+              snt.balanceOf(R.sub.transferFrom),
+              snt.balanceOf(R.sub.transferTo),
+              snt.balanceOf(PLATFORM_OWNER)
+          ]);
+      }).then(balances => {
+          [R.balanceFrom,R.balanceTo,R.balancePlatformOwner] = balances;
+          return R;
+      })
+    }
+
 
 });

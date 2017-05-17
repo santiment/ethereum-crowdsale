@@ -38,10 +38,14 @@ contract ExtERC20 is ERC20, SubscriptionBase {
 }
 
 contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
-
+    uint16 constant SECONDS_IN_HOUR = 60 * 60;
     address beneficiary;
     address admin;
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
+
+    function ExtERC20Impl(){
+        beneficiary = beneficiary = msg.sender;
+    }
 
     function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success) {
         if (_fulfillPayment(msg.sender, _to, _value, 0)) {
@@ -62,7 +66,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         if (currentStatus(sub)==Status.CHARGEABLE) {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
-            var _value = sub.pricePerHour * sub.chargePeriod;
+            var _value = sub.pricePerHour * sub.chargePeriod / SECONDS_IN_HOUR;
 
             success = _fulfillPayment(_from, _to, _value, subId);
             if (success) {
