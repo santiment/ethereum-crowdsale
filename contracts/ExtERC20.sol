@@ -230,7 +230,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     function _returnDeposit(uint depositId, address returnTo) internal {
         if (deposits[depositId].owner == msg.sender) {
-            balances[msg.sender] += deposits[depositId].value;
+            balances[returnTo] += deposits[depositId].value;
             delete deposits[depositId];
         } else { throw; }
     }
