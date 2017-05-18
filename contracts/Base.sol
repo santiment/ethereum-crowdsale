@@ -43,12 +43,12 @@ contract SubscriptionBase {
         address transferFrom;
         address transferTo;
         uint pricePerHour;
-        uint nextChargeOn;
+        uint paidUntil;
         uint chargePeriod;
         uint deposit;  //ID in Subscription and VALUE in Offer
 
         uint startOn;
-        uint validUntil;
+        uint expireOn;
         uint execCounter;
         bytes descriptor;
         uint onHoldSince;

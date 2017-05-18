@@ -2,7 +2,7 @@ const BigNumber = require('bignumber.js');
 
 const chai = require('chai');
 chai.use(require('chai-bignumber')());
-const assert = require('chai').assert
+//const assert = require('chai').assert
 
 const Promise = require('bluebird');
 const TestableSNT = artifacts.require('TestableSNT');
@@ -93,15 +93,15 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const SUB_IDs = [];
 
     const offerDefs = [
-        { price:$nt(10), chargePeriod:10, validUntil:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:$nt(10), chargePeriod:10, validUntil:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:$nt(10), chargePeriod:10, validUntil:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:$nt(10), chargePeriod:10, validUntil:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         it('should create a valid offer #'+i, function() {
             var now = ethNow();
             return myProvider.createSubscriptionOffer(
-                 offerDef.price, offerDef.chargePeriod, now + offerDef.validUntil, offerDef.offerLimit,
+                 offerDef.price, offerDef.chargePeriod, now + offerDef.expireOn, offerDef.offerLimit,
                  offerDef.depositValue, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER})
             .then(tx => {
@@ -117,11 +117,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
                         assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
                         assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
-                        assert.equal(BN(sub.nextChargeOn) , BN(0),                     'nextChargeOn must have unset for the offer')
+                        assert.equal(BN(sub.paidUntil) , BN(0),                     'paidUntil must have unset for the offer')
                         assert.equal(BN(sub.chargePeriod) , BN(offerDef.chargePeriod), 'chargePeriod mismatch')
                         assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
                         assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
-                        assert.equal(BN(sub.validUntil)   , BN(now+offerDef.validUntil), 'validUntil mismatch')
+                        assert.equal(BN(sub.expireOn)   , BN(now+offerDef.expireOn), 'expireOn mismatch')
                         assert.equal(BN(sub.execCounter)  , BN(offerDef.offerLimit),   'execCounter <> offerLimit')
                         assert.equal(sub.descriptor       , offerDef.descriptor,       'descriptor mismatch')
                         assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
@@ -131,11 +131,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         });
     });
 
-    [{offerId: 1, validUntil:100, startOn: 0},
-     {offerId: 2, validUntil:31, startOn: 0}
+    [{offerId: 1, expireOn:100, startOn: 0},
+     {offerId: 2, expireOn:31, startOn: 0}
     ].forEach( (acceptDef, i) => {
         var now;
-        let {offerId, validUntil, startOn} = acceptDef;
+        let {offerId, expireOn, startOn} = acceptDef;
         it('should accept an offer #'+offerId+' as a new subscription', function() {
             var user = USER_01;
             var offerExecCounter;
@@ -143,7 +143,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 var offer = parseSubscriptionDef(offerDef);
                 offerExecCounter = offer.execCounter;
                 now = ethNow();
-                return  snt.acceptSubscriptionOffer(offerId, now+validUntil, startOn, {from:user});
+                return  snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user});
             }).then(tx => {
                 const blockNow = ethNow(tx.receipt.blockNumber);
                 if (startOn==0) startOn = blockNow;
@@ -162,11 +162,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         assert.equal(sub.transferFrom     , user,                   'transferFrom must have unset for the offer')
                         assert.equal(sub.transferTo       , offer.transferTo,       'msg.sender expected as sub.transferTo')
                         assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
-                        assert.equal(BN(sub.nextChargeOn) , BN(startOn),            'nextChargeOn mismatch')
+                        assert.equal(BN(sub.paidUntil) , BN(startOn),            'paidUntil mismatch')
                         assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
                         assert.equal(BN(sub.deposit)      , BN(depositId),          'deposit for new sub mismatch')
                         assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
-                        assert.equal(BN(sub.validUntil)   , BN(now+validUntil),         'validUntil mismatch')
+                        assert.equal(BN(sub.expireOn)   , BN(now+expireOn),         'expireOn mismatch')
                         assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
                         assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
                         assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
@@ -194,7 +194,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 assert.equal(SUB_STATUS_REV[s0.status], SUB_STATUS_REV[statusBefore], 'PRE_CHECK: unexpected subscription state before subscription charge: ');
                 if ([SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID].includes(s0.status)) {
                     if (waitSec != NO_WAIT) {
-                        let delay = waitSec != AUTO ? waitSec : s0.sub.nextChargeOn.minus(ethNow()).toNumber()+1;
+                        let delay = waitSec != AUTO ? waitSec : s0.sub.paidUntil.minus(ethNow()).toNumber()+1;
                         evm_increaseTime(delay);
                     }
                     //FUNCTION UNDER TEST: CHARGE SUBSCRIPTION
@@ -222,10 +222,10 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 assert.equal(BN(_fee), BN(_value.dividedToIntegerBy(PLATFORM_FEE_PER_10000*10000)),'invalid payment fee')
                 assert.equal(_caller, user,'payment caller mismatch')
                 //assert subscription invariants
-                assertSubscriptionEqualBut(s0.sub, s1.sub, ['nextChargeOn','execCounter']);
+                assertSubscriptionEqualBut(s0.sub, s1.sub, ['paidUntil','execCounter']);
                 //assert subscription changes
-                let expected_nextChargeOn = new BigNumber(s0.sub.nextChargeOn).plus(s0.sub.chargePeriod);
-                assert.equal(BN(s1.sub.nextChargeOn)        , BN(expected_nextChargeOn), 'unexpected changes in field "nextChargeOn"')
+                let expected_paidUntil = new BigNumber(s0.sub.paidUntil).plus(s0.sub.chargePeriod);
+                assert.equal(BN(s1.sub.paidUntil)        , BN(expected_paidUntil), 'unexpected changes in field "paidUntil"')
                 assert.equal(BN(s0.sub.execCounter.plus(1)) , BN(s1.sub.execCounter)   , 'unexpected changes in field "execCounter"')
                 //assert balance changes
                 let expected_balanceFrom          = s0.balanceFrom.minus(s0.amountToPay);
@@ -260,7 +260,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     }
 
     function assertSubscriptionEqualBut(sub0, sub1, exceptFields) {
-      let EXPECT_CHANGES_IN = ['execCounter','nextChargeOn'];
+      let EXPECT_CHANGES_IN = ['execCounter','paidUntil'];
       for(key in sub0.keys()) {
           console.log('============================');
           console.log(key);

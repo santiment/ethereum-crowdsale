@@ -19,8 +19,8 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
     function paymentFrom(address _from, PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
 
-    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _validUntil, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
-    function acceptSubscriptionOffer(uint _offerId, uint _validUntil, uint _startOn) returns (uint newSubId);
+    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
+    function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) returns (uint newSubId);
     function cancelSubscription(uint subId, bool forced);
     function holdSubscription (uint subId) returns (bool success);
     function unholdSubscription(uint subId) returns (bool success);
@@ -70,7 +70,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
             success = _fulfillPayment(_from, _to, _value, subId);
             if (success) {
-                sub.nextChargeOn  = max(sub.nextChargeOn, sub.startOn) + sub.chargePeriod;
+                sub.paidUntil  = max(sub.paidUntil, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
                 assert (PaymentListener(_to).onSubExecuted(subId));
             }
@@ -79,7 +79,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     function postponeDueDate(uint subId, uint newDueDate) {
         Subscription storage sub = subscriptions[subId];
-        if (sub.nextChargeOn < newDueDate) sub.nextChargeOn = newDueDate;
+        if (sub.paidUntil < newDueDate) sub.paidUntil = newDueDate;
     }
 
     function _fulfillPreapprovedPayment(address _from, address _to, uint _value) internal returns (bool success) {
@@ -122,26 +122,26 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
             return Status.ON_HOLD;
         } else if (sub.transferFrom==0) {
             return Status.OFFER;
-        } else if (sub.nextChargeOn >= sub.validUntil) {
+        } else if (sub.paidUntil >= sub.expireOn) {
             return Status.EXPIRED;
-        } else if (sub.nextChargeOn <= now) {
+        } else if (sub.paidUntil <= now) {
             return Status.CHARGEABLE;
         } else {
             return Status.PAID;
         }
     }
 
-    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _validUntil, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId) {
+    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId) {
         subscriptions[++subscriptionCounter] = Subscription ({
             transferFrom : 0,
             transferTo   : msg.sender,
             pricePerHour : _price,
-            nextChargeOn : 0,
+            paidUntil : 0,
             chargePeriod : _chargePeriod,
             deposit      : _depositValue,
     //ToDo: **** implement startOn
             startOn      : _startOn,
-            validUntil   : _validUntil,
+            expireOn   : _expireOn,
             execCounter  : _offerLimit,
             descriptor   : _descriptor,
             onHoldSince  : 0
@@ -149,7 +149,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         return subscriptionCounter;
     }
 
-    function acceptSubscriptionOffer(uint _offerId, uint _validUntil, uint _startOn) public returns (uint newSubId) {
+    function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
   //ToDo: do we really need an executionCounter in offer stored in SNT?
   //      Should the Provider provide this advanced info about the offer?
         assert(subscriptions[_offerId].execCounter-- > 0);
@@ -163,8 +163,8 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         newSub.transferFrom = msg.sender;
         newSub.execCounter = 0;
   //ToDo: check startOn >= now
-        newSub.nextChargeOn = newSub.startOn = max(_startOn, now);
-        newSub.validUntil = _validUntil;
+        newSub.paidUntil = newSub.startOn = max(_startOn, now);
+        newSub.expireOn = _expireOn;
         newSub.deposit = depositId;
   //ToDo: use offerId!!!
         assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.PAID, newSub.descriptor));
@@ -175,7 +175,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
     function cancelSubscription(uint subId, bool forced) {
         Subscription storage sub = subscriptions[subId];
         var _to = sub.transferTo;
-        sub.validUntil = max(now, sub.nextChargeOn);
+        sub.expireOn = max(now, sub.paidUntil);
         _returnDeposit(sub.deposit, sub.transferFrom);
         if (!forced && msg.sender != _to) {
             //ToDo: handler throws?
@@ -200,7 +200,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         if (sub.onHoldSince == 0) { return true; }
         var _to = sub.transferTo;
         if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, Status.PAID,"")) {
-            sub.nextChargeOn += now - sub.onHoldSince;
+            sub.paidUntil += now - sub.onHoldSince;
             sub.onHoldSince = 0;
             return true;
         } else { return false; }
