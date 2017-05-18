@@ -61,20 +61,22 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         } else { return false; }
     }
 
-    function executeSubscription(uint subId) returns (bool success) {
+    function executeSubscription(uint subId) returns (bool) {
         Subscription storage sub = subscriptions[subId];
         if (currentStatus(sub)==Status.CHARGEABLE) {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
-            var _value = sub.pricePerHour * sub.chargePeriod / SECONDS_IN_HOUR;
-
-            success = _fulfillPayment(_from, _to, _value, subId);
-            if (success) {
+            var _value = _amountToCharge(sub);
+            if (_fulfillPayment(_from, _to, _value, subId)) {
                 sub.paidUntil  = max(sub.paidUntil, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
                 assert (PaymentListener(_to).onSubExecuted(subId));
+                return true;
             }
         }
+        //ToDo: Possible another solution: throw always, but catch in caller.
+        if (tx.origin==msg.sender) throw;
+        else return false;
     }
 
     function postponeDueDate(uint subId, uint newDueDate) {
@@ -231,6 +233,10 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
             balances[msg.sender] += deposits[depositId].value;
             delete deposits[depositId];
         } else { throw; }
+    }
+
+    function _amountToCharge(Subscription storage sub) internal returns (uint) {
+        return sub.pricePerHour * sub.chargePeriod / SECONDS_IN_HOUR;
     }
 
     mapping (uint => Subscription) public subscriptions;
