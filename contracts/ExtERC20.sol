@@ -29,7 +29,7 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function currentStatus(uint subId) constant returns(Status status);
 
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
-    function returnDeposit(uint depositId);
+    function claimDeposit(uint depositId);
 
     enum PaymentStatus {OK, BALANCE_ERROR, APPROVAL_ERROR}
 
@@ -133,14 +133,14 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         }
     }
 
-    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId) {
+    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor) returns (uint subId) {
         subscriptions[++subscriptionCounter] = Subscription ({
             transferFrom : 0,
             transferTo   : msg.sender,
             pricePerHour : _price,
             paidUntil : 0,
             chargePeriod : _chargePeriod,
-            deposit      : _depositValue,
+            depositAmount: _depositAmount,
     //ToDo: **** implement startOn
             startOn      : _startOn,
             expireOn   : _expireOn,
@@ -156,19 +156,17 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
   //      Should the Provider provide this advanced info about the offer?
         assert(subscriptions[_offerId].execCounter-- > 0);
 
-        Subscription storage sub = subscriptions[_offerId];
-        var depositId = sub.deposit > 0
-                      ? createDeposit(sub.deposit, sub.descriptor)
-                      : 0;
-        newSubId = ++subscriptionCounter;
-        Subscription storage newSub = subscriptions[newSubId] = sub;
+        Subscription storage offer = subscriptions[_offerId];
+        newSubId = subscriptionCounter + 1;
+        Subscription storage newSub = subscriptions[newSubId] = offer;
         newSub.transferFrom = msg.sender;
         newSub.execCounter = 0;
   //ToDo: check startOn >= now
         newSub.paidUntil = newSub.startOn = max(_startOn, now);
         newSub.expireOn = _expireOn;
-        newSub.deposit = depositId;
   //ToDo: use offerId!!!
+        subscriptionCounter = newSubId;
+        assert (_burn(newSub.depositAmount));
         assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.PAID, newSub.descriptor));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         return newSubId;
@@ -178,15 +176,24 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
-        _returnDeposit(sub.deposit, sub.transferFrom);
         if (!forced && msg.sender != _to) {
             //ToDo: handler throws?
             PaymentListener(_to).onSubscriptionChange(subId, Status.EXPIRED, "");
         }
     }
 
+
+    //ToDo:  rewrite asserts, last sub status. ARCHIVED?
+    function claimSubscriptionDeposit(uint subId) {
+        assert (currentStatus(subId) == Status.EXPIRED);
+        assert (subscriptions[subId].transferFrom == msg.sender);
+        var depositAmount = subscriptions[subId].depositAmount;
+        subscriptions[subId].depositAmount = 0;
+        balances[msg.sender]+=depositAmount;
+    }
+
     // a service can allow/disallow hold/unhold
-    function holdSubscription (uint subId) returns (bool success){
+    function holdSubscription (uint subId) returns (bool success) {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince > 0) { return true; }
         var _to = sub.transferTo;
@@ -208,27 +215,31 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         } else { return false; }
     }
 
-
     //ToDo:  return or throw?
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId) {
-        if (balances[msg.sender] >= _value) {
-            balances[msg.sender] -= _value;
+      return _createDeposit(msg.sender, _value, _descriptor);
+    }
+
+    function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint subId) {
+        if (balances[owner] >= _value) {
+            balances[owner] -= _value;
             deposits[++depositCounter] = Deposit ({
-                owner : msg.sender,
+                owner : owner,
                 value : _value,
                 descriptor : _descriptor
             });
-            NewDeposit(depositCounter, _value, msg.sender);
+            NewDeposit(depositCounter, _value, owner);
             return depositCounter;
         } else { throw; } //ToDo:
     }
 
+    //ToDo: check if deposit is from Sub.
     //ToDo: only sender allowed?
-    function returnDeposit(uint depositId) {
-        return _returnDeposit(depositId, msg.sender);
+    function claimDeposit(uint depositId) {
+        return _claimDeposit(depositId, msg.sender);
     }
 
-    function _returnDeposit(uint depositId, address returnTo) internal {
+    function _claimDeposit(uint depositId, address returnTo) internal {
         if (deposits[depositId].owner == msg.sender) {
             balances[returnTo] += deposits[depositId].value;
             delete deposits[depositId];
@@ -239,9 +250,16 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         return sub.pricePerHour * sub.chargePeriod / SECONDS_IN_HOUR;
     }
 
+    function _burn(uint amount) internal returns (bool success){
+        if (balances[msg.sender] >= amount) {
+            balances[msg.sender] -= amount;
+            return true;
+        } else { return false; }
+    }
+
     mapping (uint => Subscription) public subscriptions;
     mapping (uint => Deposit) public deposits;
-    uint160 public subscriptionCounter = 0;
-    uint160 public depositCounter = 0;
+    uint public subscriptionCounter = 0;
+    uint public depositCounter = 0;
 
 }

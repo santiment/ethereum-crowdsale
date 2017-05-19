@@ -45,7 +45,7 @@ contract SubscriptionBase {
         uint pricePerHour;
         uint paidUntil;
         uint chargePeriod;
-        uint deposit;  //ID in Subscription and VALUE in Offer
+        uint depositAmount;
 
         uint startOn;
         uint expireOn;

@@ -2,7 +2,7 @@ const BigNumber = require('bignumber.js');
 
 const chai = require('chai');
 chai.use(require('chai-bignumber')());
-//const assert = require('chai').assert
+const assert = require('chai').assert;
 
 const Promise = require('bluebird');
 const TestableSNT = artifacts.require('TestableSNT');
@@ -93,16 +93,16 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const SUB_IDs = [];
 
     const offerDefs = [
-        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositValue:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         it('should create a valid offer #'+i, function() {
             var now = ethNow();
             return myProvider.createSubscriptionOffer(
                  offerDef.price, offerDef.chargePeriod, now + offerDef.expireOn, offerDef.offerLimit,
-                 offerDef.depositValue, offerDef.startOn, offerDef.descriptor
+                 offerDef.depositAmount, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER})
             .then(tx => {
                 let [providerId, subId] = parseLogEvent(tx,abi_NewOffer);
@@ -117,11 +117,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
                         assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
                         assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
-                        assert.equal(BN(sub.paidUntil) , BN(0),                     'paidUntil must have unset for the offer')
+                        assert.equal(BN(sub.paidUntil)    , BN(0),                     'paidUntil must have unset for the offer')
                         assert.equal(BN(sub.chargePeriod) , BN(offerDef.chargePeriod), 'chargePeriod mismatch')
-                        assert.equal(BN(sub.deposit)      , BN(offerDef.depositValue), 'deposit for offer must be a value')
+                        assert.equal(BN(sub.depositAmount) , BN(offerDef.depositAmount), 'deposit for offer must be a value')
                         assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
-                        assert.equal(BN(sub.expireOn)   , BN(now+offerDef.expireOn), 'expireOn mismatch')
+                        assert.equal(BN(sub.expireOn)     , BN(now+offerDef.expireOn), 'expireOn mismatch')
                         assert.equal(BN(sub.execCounter)  , BN(offerDef.offerLimit),   'execCounter <> offerLimit')
                         assert.equal(sub.descriptor       , offerDef.descriptor,       'descriptor mismatch')
                         assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
@@ -139,38 +139,44 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         it('should accept an offer #'+offerId+' as a new subscription', function() {
             var user = USER_01;
             var offerExecCounter;
-            return snt.subscriptions(offerId).then(offerDef => {
-                var offer = parseSubscriptionDef(offerDef);
-                offerExecCounter = offer.execCounter;
-                now = ethNow();
-                return  snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user});
+            var user_balance0;
+            return Promise.join(
+                    snt.subscriptions(offerId),
+                    snt.balanceOf(user),
+                (offerDef, _user_balance0) => {
+                    var offer = parseSubscriptionDef(offerDef);
+                    user_balance0 = _user_balance0;
+                    offerExecCounter = offer.execCounter;
+                    now = ethNow();
+                    return  snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user});
             }).then(tx => {
                 const blockNow = ethNow(tx.receipt.blockNumber);
                 if (startOn==0) startOn = blockNow;
-                let [depositId, value, sender] = parseLogEvent(tx,abi_NewDeposit)
                 let [customer, service, offerId, subId] = parseLogEvent(tx,abi_NewSubscription);
                 return Promise.join(
                     snt.subscriptions(offerId),
                     snt.subscriptions(subId),
                     snt.currentStatus(subId),
-                    (offerDef, subDef, status) => {
-                        var offer = parseSubscriptionDef(offerDef);
-                        var sub   = parseSubscriptionDef(subDef);
-                        //check the offer
-                        assert.equal(offer.execCounter    , offerExecCounter-1,     'offer.execCounter must decrease by 1')
-                        //check the new subscription
-                        assert.equal(sub.transferFrom     , user,                   'transferFrom must have unset for the offer')
-                        assert.equal(sub.transferTo       , offer.transferTo,       'msg.sender expected as sub.transferTo')
-                        assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
-                        assert.equal(BN(sub.paidUntil) , BN(startOn),            'paidUntil mismatch')
-                        assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
-                        assert.equal(BN(sub.deposit)      , BN(depositId),          'deposit for new sub mismatch')
-                        assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
-                        assert.equal(BN(sub.expireOn)   , BN(now+expireOn),         'expireOn mismatch')
-                        assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
-                        assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
-                        assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
-
+                    snt.balanceOf(user),
+                (offerDef, subDef, status, user_balance1) => {
+                    var offer = parseSubscriptionDef(offerDef);
+                    var sub   = parseSubscriptionDef(subDef);
+                    //check the offer
+                    assert.equal(offer.execCounter    , offerExecCounter-1,     'offer.execCounter must decrease by 1')
+                    //check the new subscription
+                    assert.equal(sub.transferFrom     , user,                   'transferFrom must have unset for the offer')
+                    assert.equal(sub.transferTo       , offer.transferTo,       'msg.sender expected as sub.transferTo')
+                    assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
+                    assert.equal(BN(sub.paidUntil)    , BN(startOn),            'paidUntil mismatch')
+                    assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
+                    assert.equal(BN(sub.depositAmount), BN(offer.depositAmount),'deposit for new sub mismatch')
+                    assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
+                    assert.equal(BN(sub.expireOn)     , BN(now+expireOn),         'expireOn mismatch')
+                    assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
+                    assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
+                    assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
+                    //check balance changes
+                    assert.equal(BN(user_balance0.minus(user_balance1)), BN(sub.depositAmount),'unexpected user balance changes')
                 });
             });
         })
