@@ -28,6 +28,7 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function postponeDueDate(uint subId, uint newDueDate);
     function currentStatus(uint subId) constant returns(Status status);
 
+    function paybackSubscriptionDeposit(uint subId);
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
     function claimDeposit(uint depositId);
 
@@ -220,6 +221,20 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
       return _createDeposit(msg.sender, _value, _descriptor);
     }
 
+    //ToDo: only sender allowed?
+    function claimDeposit(uint depositId) {
+        return _claimDeposit(depositId, msg.sender);
+    }
+
+    function paybackSubscriptionDeposit(uint subId) public {
+        assert (currentStatus(subId) == Status.EXPIRED);
+        var depositAmount = subscriptions[subId].depositAmount;
+        assert (depositAmount > 0);
+        balances[subscriptions[subId].transferFrom] += depositAmount;
+        subscriptions[subId].depositAmount = 0;
+    }
+
+
     function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint subId) {
         if (balances[owner] >= _value) {
             balances[owner] -= _value;
@@ -231,12 +246,6 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
             NewDeposit(depositCounter, _value, owner);
             return depositCounter;
         } else { throw; } //ToDo:
-    }
-
-    //ToDo: check if deposit is from Sub.
-    //ToDo: only sender allowed?
-    function claimDeposit(uint depositId) {
-        return _claimDeposit(depositId, msg.sender);
     }
 
     function _claimDeposit(uint depositId, address returnTo) internal {

@@ -131,7 +131,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         });
     });
 
-    [{offerId: 1, expireOn:100, startOn: 0},
+    [{offerId: 1, expireOn:200, startOn: 0},
      {offerId: 2, expireOn:31, startOn: 0}
     ].forEach( (acceptDef, i) => {
         var now;
@@ -189,6 +189,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        [6, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT  , SUB_STATUS.PAID],
        [6,  __FROM, SUB_STATUS.PAID      , AUTO     , SUB_STATUS.PAID],
        [6, USER_01, SUB_STATUS.PAID      , AUTO     , SUB_STATUS.EXPIRED],
+       [5, USER_01, SUB_STATUS.CHARGEABLE, AUTO     , SUB_STATUS.CHARGEABLE],
+       [5, USER_01, SUB_STATUS.CHARGEABLE, AUTO     , SUB_STATUS.PAID]
     ].forEach( (chargeDef, i) => {
         let [subId, user, statusBefore, waitSec, statusAfter] = chargeDef;
         it('charging subscription#'+subId, function() {
@@ -246,6 +248,46 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             });
         })
     });
+
+    [[5, SUB_STATUS.PAID]]
+    .forEach(testData => {
+        let [subId,exp_status0] = testData;
+        let s1,s2,s3;
+        it('cancel subscription#'+subId, function() {
+          return collectPaymentData(subId)
+              .then(paymentInfo => {
+                  s0 = paymentInfo;
+                  //check test preconditions
+                  assert.equal(SUB_STATUS_REV[s0.status], SUB_STATUS_REV[exp_status0], 'PRE_CHECK: unexpected subscription state before cancellation. ');
+                  return snt.cancelSubscription(subId, false);
+              }).then(() => {
+                return collectPaymentData(subId);
+              }).then(paymentInfo => {
+                  s1 = paymentInfo;
+                  //assert subscription invariants
+                  assertSubscriptionEqualBut(s0.sub, s1.sub, ['expireOn']);
+                  //assert subscription changes
+                  assert.equal(BN(s1.sub.expireOn)      , BN(s1.sub.paidUntil), 'unexpected changes in field "expireOn"');
+                  return evm_increaseTime(s1.sub.expireOn.minus(ethNow()));
+              }).then(() => {
+                  return collectPaymentData(subId);
+              }).then(paymentInfo => {
+                  s2 = paymentInfo;
+                  assertSubscriptionEqualBut(s1.sub, s2.sub, []);
+                  assert.equal(SUB_STATUS_REV[s2.status], SUB_STATUS_REV[SUB_STATUS.EXPIRED], 'POST_CHECK: unexpected subscription state before cancellation. ');
+                  return snt.paybackSubscriptionDeposit(subId);
+              }).then(() => {
+                    return collectPaymentData(subId);
+              }).then(paymentInfo => {
+                  s3 = paymentInfo;
+                  assertSubscriptionEqualBut(s2.sub, s3.sub, ['depositAmount']);
+                  assert.equal(BN(s3.balanceFrom)      , BN(s2.balanceFrom.plus(s1.sub.depositAmount)), 'unexpected changes in field "balanceFrom"');
+                  assert.equal(BN(s3.sub.depositAmount), BN(0), 'unexpected changes in field "depositAmount"');
+                  assert.equal(SUB_STATUS_REV[s3.status], SUB_STATUS_REV[SUB_STATUS.EXPIRED], 'POST_CHECK: unexpected subscription state before cancellation. ');
+              });
+        });
+    });
+
 
     function parseLogEvent(tx, abi) {
         var typeList = abi.inputs.map(e=>e.type);
