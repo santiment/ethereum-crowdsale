@@ -202,13 +202,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 assert.equal(SUB_STATUS_REV[s0.status], SUB_STATUS_REV[statusBefore], 'PRE_CHECK: unexpected subscription state before subscription charge: ');
                 if ([SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID].includes(s0.status)) {
                     if (waitSec != NO_WAIT) {
-                        let delay = waitSec != AUTO ? waitSec : s0.sub.paidUntil.minus(ethNow()).toNumber()+1;
+                        let delay = waitSec != AUTO ? waitSec : s0.paidUntil.minus(ethNow()).toNumber()+1;
                         evm_increaseTime(delay);
                     }
                     //FUNCTION UNDER TEST: CHARGE SUBSCRIPTION
                     assert.isOk(s0.balanceFrom.greaterThanOrEqualTo(s0.amountToPay), 'PRE_CHECK: unsufficient sender balance');
-                    if (user === __FROM)    user = s0.sub.transferFrom;
-                    else if (user === __TO) user = s0.sub.transferTo;
+                    if (user === __FROM)    user = s0.transferFrom;
+                    else if (user === __TO) user = s0.transferTo;
                     return snt.executeSubscription(subId, {from:user});
                 } else {
                     throw new Error(SKIP_CHARGE);
@@ -224,17 +224,17 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 let [_from,  _to, _value, _fee, _caller, _returnCode, _subId] = parseLogEvent(tx,abi_Payment);
                 assert.equal(0, _returnCode,'payment failed with status: ')
                 assert.equal(subId, _subId,' subscription id mismatch')
-                assert.equal(_from, s0.sub.transferFrom,'infalid subscription field "transferFrom"')
-                assert.equal(_to, s0.sub.transferTo,'invalid subscription field "transferTo"')
+                assert.equal(_from, s0.transferFrom,'infalid subscription field "transferFrom"')
+                assert.equal(_to, s0.transferTo,'invalid subscription field "transferTo"')
                 assert.equal(BN(_value), BN(s0.amountToPay),' invalid value')
                 assert.equal(BN(_fee), BN(_value.dividedToIntegerBy(PLATFORM_FEE_PER_10000*10000)),'invalid payment fee')
                 assert.equal(_caller, user,'payment caller mismatch')
                 //assert subscription invariants
-                assertSubscriptionEqualBut(s0.sub, s1.sub, ['paidUntil','execCounter']);
+                assertSubscriptionEqualBut(s0, s1, ['paidUntil','execCounter']);
                 //assert subscription changes
-                let expected_paidUntil = new BigNumber(s0.sub.paidUntil).plus(s0.sub.chargePeriod);
-                assert.equal(BN(s1.sub.paidUntil)        , BN(expected_paidUntil), 'unexpected changes in field "paidUntil"')
-                assert.equal(BN(s0.sub.execCounter.plus(1)) , BN(s1.sub.execCounter)   , 'unexpected changes in field "execCounter"')
+                let expected_paidUntil = new BigNumber(s0.paidUntil).plus(s0.chargePeriod);
+                assert.equal(BN(s1.paidUntil)        , BN(expected_paidUntil), 'unexpected changes in field "paidUntil"')
+                assert.equal(BN(s0.execCounter.plus(1)) , BN(s1.execCounter)   , 'unexpected changes in field "execCounter"')
                 //assert balance changes
                 let expected_balanceFrom          = s0.balanceFrom.minus(s0.amountToPay);
                 let expected_balanceTo            = s0.balanceTo.plus(s0.amountToPay).minus(_fee);
@@ -249,45 +249,54 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         })
     });
 
-    [[5, SUB_STATUS.PAID]]
+    [[5]]
     .forEach(testData => {
-        let [subId,exp_status0] = testData;
-        let s1,s2,s3;
+        let [subId] = testData;
         it('cancel subscription#'+subId, function() {
-          return collectPaymentData(subId)
-              .then(paymentInfo => {
-                  s0 = paymentInfo;
-                  //check test preconditions
-                  assert.equal(SUB_STATUS_REV[s0.status], SUB_STATUS_REV[exp_status0], 'PRE_CHECK: unexpected subscription state before cancellation. ');
-                  return snt.cancelSubscription(subId, false);
-              }).then(() => {
-                return collectPaymentData(subId);
-              }).then(paymentInfo => {
-                  s1 = paymentInfo;
-                  //assert subscription invariants
-                  assertSubscriptionEqualBut(s0.sub, s1.sub, ['expireOn']);
-                  //assert subscription changes
-                  assert.equal(BN(s1.sub.expireOn)      , BN(s1.sub.paidUntil), 'unexpected changes in field "expireOn"');
-                  return evm_increaseTime(s1.sub.expireOn.minus(ethNow()));
-              }).then(() => {
-                  return collectPaymentData(subId);
-              }).then(paymentInfo => {
-                  s2 = paymentInfo;
-                  assertSubscriptionEqualBut(s1.sub, s2.sub, []);
-                  assert.equal(SUB_STATUS_REV[s2.status], SUB_STATUS_REV[SUB_STATUS.EXPIRED], 'POST_CHECK: unexpected subscription state before cancellation. ');
-                  return snt.paybackSubscriptionDeposit(subId);
-              }).then(() => {
-                    return collectPaymentData(subId);
-              }).then(paymentInfo => {
-                  s3 = paymentInfo;
-                  assertSubscriptionEqualBut(s2.sub, s3.sub, ['depositAmount']);
-                  assert.equal(BN(s3.balanceFrom)      , BN(s2.balanceFrom.plus(s1.sub.depositAmount)), 'unexpected changes in field "balanceFrom"');
-                  assert.equal(BN(s3.sub.depositAmount), BN(0), 'unexpected changes in field "depositAmount"');
-                  assert.equal(SUB_STATUS_REV[s3.status], SUB_STATUS_REV[SUB_STATUS.EXPIRED], 'POST_CHECK: unexpected subscription state before cancellation. ');
-              });
-        });
+            return assertSubscription(subId, "Check: PreCondition", (s0)=>({
+                status : SUB_STATUS.PAID
+            })).then(s0 => {
+                return snt.cancelSubscription(subId, false)
+                .then(tx => assertSubscription(s0, "Check: after sub cancelled", (s1)=>({
+                    expireOn : s1.paidUntil
+                })));
+            }).then(s0 => {
+                return evm_increaseTime(s0.expireOn.minus(ethNow()))
+                .then(tx => assertSubscription(s0, "Check: after waiting for paid period is over", (s1)=>({
+                    status : SUB_STATUS.EXPIRED
+                })));
+            }).then(s0 => {
+                return snt.paybackSubscriptionDeposit(subId)
+                .then(tx => assertSubscription(s0, "Check: deposit is paid back", (s1)=>({
+                    balanceFrom   : s0.balanceFrom.plus(s1.depositAmount),
+                    depositAmount : 0
+                })));
+            });
+       });
     });
 
+    function assertSubscription(subOrSubId, assertMsg, assertFunc){
+        let s0;
+        let subId = Number.isInteger(subOrSubId)
+                  ? subOrSubId
+                  : (s0=subOrSubId).subId;
+        return collectPaymentData(subId)
+            .then(s => {
+                let assertMap = assertFunc(s);
+                if (!s0) {
+                    for([key,val] of Object.entries(assertMap)) {
+                        if (val)
+                            assert.equal(String(s[key]), String(val), assertMsg + " '"+key+"'"  )
+                    }
+                } else {
+                    for([key,val] of s0) {
+                        let val = assertMap[key] || s[key];
+                        assert.equal(String(s0[key]), String(val), assertMsg + " '"+key+"'"  )
+                    }
+                }
+                return s;
+            });
+    }
 
     function parseLogEvent(tx, abi) {
         var typeList = abi.inputs.map(e=>e.type);
@@ -319,23 +328,24 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     }
 
     function collectPaymentData(subId){
-      let R = new Map();
-      return Promise.all([
-          snt.currentStatus(subId),
-          snt.subscriptions(subId)
-      ]).then(([bn_statusId, subDef]) => {
-          R.sub = parseSubscriptionDef(subDef);
-          R.status = bn_statusId.toNumber();
-          R.amountToPay = R.sub.pricePerHour.mul(R.sub.chargePeriod).dividedToIntegerBy(SECONDS_IN_HOUR);
-          return Promise.all([
-              snt.balanceOf(R.sub.transferFrom),
-              snt.balanceOf(R.sub.transferTo),
-              snt.balanceOf(PLATFORM_OWNER)
-          ]);
-      }).then(balances => {
-          [R.balanceFrom,R.balanceTo,R.balancePlatformOwner] = balances;
-          return R;
-      })
+        let R = new Map();
+        return Promise.all([
+            snt.currentStatus(subId),
+            snt.subscriptions(subId)
+        ]).then(([bn_statusId, subDef]) => {
+            R = parseSubscriptionDef(subDef);
+            R.subId = subId;
+            R.status = bn_statusId.toNumber();
+            R.amountToPay = R.pricePerHour.mul(R.chargePeriod).dividedToIntegerBy(SECONDS_IN_HOUR);
+            return Promise.all([
+                snt.balanceOf(R.transferFrom),
+                snt.balanceOf(R.transferTo),
+                snt.balanceOf(PLATFORM_OWNER)
+            ]);
+        }).then(balances => {
+            [R.balanceFrom,R.balanceTo,R.balancePlatformOwner] = balances;
+            return R;
+        })
     }
 
 
