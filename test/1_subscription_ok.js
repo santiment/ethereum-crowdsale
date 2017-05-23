@@ -89,50 +89,45 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const abi_Payment = SNT.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
 
-//ToDo: SUB_IDs rework, because this ficture is not works for async tests
-    const SUB_IDs = [];
-
-    const offerDefs = [
+    [
         { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
         { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
         { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
         { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
+        let offerId = i+1;
         it('should create a valid offer #'+i, function() {
             var now = ethNow();
-            return myProvider.createSubscriptionOffer(
-                 offerDef.price, offerDef.chargePeriod, now + offerDef.expireOn, offerDef.offerLimit,
-                 offerDef.depositAmount, offerDef.startOn, offerDef.descriptor
-                ,{from:PROVIDER_OWNER})
-            .then(tx => {
-                let [providerId, subId] = parseLogEvent(tx,abi_NewOffer);
-                assert.equal(myProvider.address,providerId,'provider id mismatch');
-                assert.equal(i+1,subId,'unexpected subscription id');
-                SUB_IDs.push(subId);
-                return Promise.join(
-                    snt.subscriptions(subId),
-                    snt.currentStatus(subId),
-                    (subDef, status) => {
-                        var sub = parseSubscriptionDef(subDef);
-                        assert.equal(BN(sub.transferFrom) , BN(0),                     'transferFrom must have unset for the offer')
-                        assert.equal(sub.transferTo       , myProvider.address,        'transferTo must be set to provider contract')
-                        assert.equal(BN(sub.pricePerHour) , BN(offerDef.price),        'price mismatch')
-                        assert.equal(BN(sub.paidUntil)    , BN(0),                     'paidUntil must have unset for the offer')
-                        assert.equal(BN(sub.chargePeriod) , BN(offerDef.chargePeriod), 'chargePeriod mismatch')
-                        assert.equal(BN(sub.depositAmount), BN(offerDef.depositAmount),'deposit for offer must be a value')
-                        assert.equal(BN(sub.startOn)      , BN(offerDef.startOn),      'startOn mismatch')
-                        assert.equal(BN(sub.expireOn)     , BN(now+offerDef.expireOn), 'expireOn mismatch')
-                        assert.equal(BN(sub.execCounter)  , BN(offerDef.offerLimit),   'execCounter <> offerLimit')
-                        assert.equal(sub.descriptor       , offerDef.descriptor,       'descriptor mismatch')
-                        assert.equal(BN(sub.onHoldSince)  , BN(0),                     'created offer expected to be not onHold')
-                        assert.equal(SUB_STATUS.OFFER     , status,                    'invalid offer state');
-                    });
-            });
+            let expireOn = now + offerDef.expireOn;
+            return myProvider.createSubscriptionOffer (
+                offerDef.price, offerDef.chargePeriod, expireOn, offerDef.offerLimit,
+                offerDef.depositAmount, offerDef.startOn, offerDef.descriptor
+                ,{from:PROVIDER_OWNER}
+            )
+            .then(tx => assertLogEvent(tx,abi_NewOffer, i+':NewOffer event',(s)=>({
+                provider : myProvider.address,
+                offerId  : offerId
+            })))
+            .then(evt => assertSubscription(offerId, i+': Check: newly created subscription #'+offerId, (s) => ({
+                transferFrom  : 0,
+                transferTo    : myProvider.address,
+                pricePerHour  : offerDef.price,
+                paidUntil     : 0,
+                chargePeriod  : offerDef.chargePeriod,
+                depositAmount : offerDef.depositAmount,
+                startOn       : offerDef.startOn,
+                expireOn      : now + offerDef.expireOn,
+                execCounter   : offerDef.offerLimit,
+                descriptor    : offerDef.descriptor,
+                onHoldSince   : 0,
+                status: SUB_STATUS.OFFER
+            })));
         });
     });
 
-    [{offerId: 1, expireOn:200, startOn: 0},
-     {offerId: 2, expireOn:31, startOn: 0}
+    [
+       {offerId: 1, expireOn:200, startOn: 0},
+       {offerId: 2, expireOn:31, startOn: 0}
     ].forEach( (acceptDef, i) => {
         var now;
         let {offerId, expireOn, startOn} = acceptDef;
@@ -171,7 +166,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
                     assert.equal(BN(sub.depositAmount), BN(offer.depositAmount),'deposit for new sub mismatch')
                     assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
-                    assert.equal(BN(sub.expireOn)     , BN(now+expireOn),         'expireOn mismatch')
+                    assert.equal(BN(sub.expireOn)     , BN(now+expireOn),       'expireOn mismatch')
                     assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
                     assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
                     assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
@@ -254,7 +249,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     function assertSubscription(subOrSubId, assertMsg, assertFunc){
         let s0;
-        let subId = Number.isInteger(subOrSubId)
+        let subId = Number.isInteger(subOrSubId) || subOrSubId.isBigNumber
                   ? subOrSubId
                   : (s0=subOrSubId).subId;
         return collectPaymentData(subId)
