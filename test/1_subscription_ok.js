@@ -127,7 +127,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     [
        {offerId: 1, expireOn:200, startOn: 0},
-       {offerId: 2, expireOn:31, startOn: 0}
+       {offerId: 2, expireOn:31,  startOn: 0}
     ].forEach( (acceptDef, i) => {
         var now;
         let {offerId, expireOn, startOn} = acceptDef;
@@ -135,45 +135,40 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             var user = USER_01;
             var offerExecCounter;
             var user_balance0;
-            return Promise.join(
-                    snt.subscriptions(offerId),
-                    snt.balanceOf(user),
-                (offerDef, _user_balance0) => {
-                    var offer = parseSubscriptionDef(offerDef);
-                    user_balance0 = _user_balance0;
-                    offerExecCounter = offer.execCounter;
-                    now = ethNow();
-                    return  snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user});
-            }).then(tx => {
-                const blockNow = ethNow(tx.receipt.blockNumber);
-                if (startOn==0) startOn = blockNow;
-                let [customer, service, offerId, subId] = parseLogEvent(tx,abi_NewSubscription);
-                return Promise.join(
-                    snt.subscriptions(offerId),
-                    snt.subscriptions(subId),
-                    snt.currentStatus(subId),
-                    snt.balanceOf(user),
-                (offerDef, subDef, status, user_balance1) => {
-                    var offer = parseSubscriptionDef(offerDef);
-                    var sub   = parseSubscriptionDef(subDef);
-                    //check the offer
-                    assert.equal(offer.execCounter    , offerExecCounter-1,     'offer.execCounter must decrease by 1')
-                    //check the new subscription
-                    assert.equal(sub.transferFrom     , user,                   'transferFrom must have unset for the offer')
-                    assert.equal(sub.transferTo       , offer.transferTo,       'msg.sender expected as sub.transferTo')
-                    assert.equal(BN(sub.pricePerHour) , sub.pricePerHour,       'price mismatch')
-                    assert.equal(BN(sub.paidUntil)    , BN(startOn),            'paidUntil mismatch')
-                    assert.equal(BN(sub.chargePeriod) , BN(offer.chargePeriod), 'chargePeriod mismatch')
-                    assert.equal(BN(sub.depositAmount), BN(offer.depositAmount),'deposit for new sub mismatch')
-                    assert.equal(BN(sub.startOn)      , BN(startOn),            'startOn mismatch')
-                    assert.equal(BN(sub.expireOn)     , BN(now+expireOn),       'expireOn mismatch')
-                    assert.equal(BN(sub.execCounter)  , BN(0),                  'execCounter expected to be 0 at start ')
-                    assert.equal(sub.descriptor       , offer.descriptor,       'descriptor mismatch')
-                    assert.equal(BN(sub.onHoldSince)  , BN(0),                  'created sub is always not onHold')
-                    //check balance changes
-                    assert.equal(BN(user_balance0.minus(user_balance1)), BN(sub.depositAmount),'unexpected user balance changes')
-                });
-            });
+            now = ethNow();
+            return Promise.all([
+                snt.balanceOf(user),
+                assertSubscription(offerId,'Check: offer before accept',(s)=>({
+                    subId: offerId,
+                    transferFrom: 0
+                })),
+            ]).then(([user_balance0, s0]) => {
+                snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
+                .then(tx => assertLogEvent(tx, abi_NewSubscription, 'Check: NewSubscription', (e) => ({
+                    subId: s0.subscriptionCounter.plus(1),
+                    customer : user,
+                    service  : s0.transferTo,
+                    offerId  : offerId
+                })))
+                .then(e => assertSubscription(e.subId.toNumber(), 'Check: new subscription ', (s1) => ({
+                    transferFrom  : user,
+                    transferTo    : s0.transferTo,
+                    pricePerHour  : s0.pricePerHour,
+                    paidUntil     : 0,
+                    chargePeriod  : s0.chargePeriod,
+                    depositAmount : s0.depositAmount,
+                    startOn       : startOn || e.timestamp,
+                    expireOn      : now+expireOn,
+                    execCounter   : 0,
+                    descriptor    : s0.descriptor,
+                    onHoldSince   : 0,
+                    balanceFrom   : user_balance0.minus(s0.depositAmount),
+                    subscriptionCounter : s0.subscriptionCounter.plus(1)
+                })))
+                .then(e => assertSubscription(s0, 'Check: offer after accept', (s1) => ({
+                    execCounter : s0.execCounter.minus(1)
+                })))
+            })
         })
     });
 
@@ -188,7 +183,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     ].forEach( (chargeDef, i) => {
         let [subId, user, status0, waitSec, status1, status2] = chargeDef;
         it(i+':charging subscription id:'+subId, function() {
-            return assertSubscription(subId, '${i}: Check: PreCondition', (s0)=>({
+            return assertSubscription(subId, i+': Check: PreCondition', (s0)=>({
                 status: status0
             })).then(s0 => {
                 let delay = waitSec != AUTO ? waitSec : s0.paidUntil.minus(ethNow()).toNumber()+1;
@@ -200,7 +195,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 if (user === __FROM)    user = s0.transferFrom;
                 else if (user === __TO) user = s0.transferTo;
                 return snt.executeSubscription(subId, {from:user}) //method under test
-                    .then(tx => assertLogEvent(tx,abi_Payment, i+': Check: payment event', (e) =>({
+                    .then(tx => assertLogEvent(tx, abi_Payment, i+': Check: payment event', (e) =>({
                         returnCode : 0,
                         subId      : subId,
                         _from      : s0.transferFrom,
@@ -274,6 +269,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function assertLogEvent(tx, abi, assertMsg, assertFunc) {
         let names = abi.inputs.map(e=>e.name);
         let e = {}; parseLogEvent(tx,abi).forEach((v, i) => {e[names[i]]=v});
+        e.tx = tx;
+        e.timestamp = ethNow(tx.receipt.blockNumber);
         let assertMap = assertFunc(e);
         for([key,val] of Object.entries(assertMap)) {
             if (val) {
@@ -314,10 +311,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return Promise.all([
                 snt.balanceOf(R.transferFrom),
                 snt.balanceOf(R.transferTo),
-                snt.balanceOf(PLATFORM_OWNER)
+                snt.balanceOf(PLATFORM_OWNER),
+                snt.subscriptionCounter()
             ]);
         }).then(balances => {
-            [R.balanceFrom,R.balanceTo,R.balancePlatformOwner] = balances;
+            [R.balanceFrom,R.balanceTo,R.balancePlatformOwner,R.subscriptionCounter] = balances;
             return R;
         })
     }
