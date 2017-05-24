@@ -252,6 +252,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
         if (deposits[depositId].owner == msg.sender) {
             balances[returnTo] += deposits[depositId].value;
             delete deposits[depositId];
+            DepositClosed(depositId);
         } else { throw; }
     }
 

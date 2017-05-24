@@ -63,6 +63,7 @@ contract SubscriptionBase {
     //ToDo: change arg order
     event NewSubscription(address customer, address service, uint offerId, uint subId);
     event NewDeposit(uint depositId, uint value, address sender);
+    event DepositClosed(uint depositId);
 }
 
 contract PaymentListener is SubscriptionBase {

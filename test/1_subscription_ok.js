@@ -82,9 +82,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     //abi: func calls
     const abi_Subscription = SNT.abi.find(e => e.name==='subscriptions').outputs;
+    const abi_Deposit = SNT.abi.find(e => e.name==='deposits').outputs;
 
     //abi: Events
     const abi_NewDeposit = SNT.abi.find(e => e.name==='NewDeposit');
+    const abi_DepositClosed = SNT.abi.find(e => e.name==='DepositClosed');
     const abi_NewSubscription = SNT.abi.find(e => e.name==='NewSubscription');
     const abi_Payment = SNT.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
@@ -242,6 +244,61 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        });
     });
 
+    [[USER_01, 112, web3.toHex("deposit 1")]]
+    .forEach(([user, amount, info],i)=>{
+        it('create / claim deposite',function(){
+            return snt.balanceOf(user).then(user_balance0 => {
+                return snt.createDeposit(amount, info, {from:USER_01})
+                    .then(tx => assertLogEvent(tx,abi_NewDeposit,i+'Check: event NewDeposit created', (evnt)=> ({
+                        depositId : assert.ok(new BigNumber(evnt.depositId).isBigNumber),
+                        value : amount,
+                        sender: user
+                    })))
+                    .then(evnt => assertDeposit(evnt.depositId, i+'Check: NewDeposit object', (s1)=> ({
+                        depositId   : evnt.depositId,
+                        value       : evnt.value,
+                        owner       : evnt.sender,
+                        descriptor  : info,
+                        balanceFrom : user_balance0.minus(s1.value)
+                    })))
+                    .then(s1 => snt.claimDeposit(s1.depositId,{from:USER_01}))
+                    .then(tx => assertLogEvent(tx,abi_DepositClosed,i+'Check: event DepositClosed created', (evnt)=> ({
+                        depositId : evnt.depositId
+                    })))
+                    .then(evnt => Promise.all([
+                        snt.deposits(evnt.depositId),
+                        snt.balanceOf(user)
+                    ]))
+                    .then(([deposit,user_balance1]) => {
+                        assert.isNotOk(deposit.depositId,'deposit should not exist after claim');
+                        assert.equal(BN(user_balance1),BN(user_balance0),'deposit refund failed');
+                    });
+            })
+        })
+    })
+
+    function assertDeposit(depositId, assertMsg, assertFunc){
+      let D = new Map();
+      return Promise.all([
+          snt.deposits(depositId),
+          snt.depositCounter()
+      ]).then(([deposit, bn_depositCounter]) => {
+          D = parseDepositDef(deposit);
+          D.depositId = depositId;
+          return snt.balanceOf(D.owner)
+              .then(balance => {
+                  D.balanceFrom = balance;
+                  let assertMap = assertFunc(D);
+                  for([key,val] of Object.entries(assertMap)) {
+                      if (val) {
+                          assert.equal(String(D[key]), String(val), assertMsg + " '"+key+"'"  )
+                      }
+                  }
+                  return D;
+              })
+      })
+    }
+
     function assertSubscription(subOrSubId, assertMsg, assertFunc){
         let s0;
         let subId = Number.isInteger(subOrSubId) || subOrSubId.isBigNumber
@@ -290,6 +347,12 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         assert (logs.length == 1,'log not found or abmbigous');
         return SolidityCoder
             .decodeParams(typeList, logs[0].data.replace('0x', ''))
+    }
+
+    function parseDepositDef(arrayDef){
+        let dep = new Map();
+        arrayDef.forEach((e,i) => dep[abi_Deposit[i].name]=e);
+        return dep;
     }
 
     function parseSubscriptionDef(arrayDef){
