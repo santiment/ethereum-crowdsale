@@ -129,6 +129,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     [
        {offerId: 1, expireOn:200, startOn: 0},
+       {offerId: 2, expireOn:31,  startOn: 0},
+       {offerId: 2, expireOn:31,  startOn: 0},
        {offerId: 2, expireOn:31,  startOn: 0}
     ].forEach( (acceptDef, i) => {
         var now;
@@ -145,7 +147,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     transferFrom: 0
                 })),
             ]).then(([user_balance0, s0]) => {
-                snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
+                return snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
                 .then(tx => assertLogEvent(tx, abi_NewSubscription, 'Check: NewSubscription', (e) => ({
                     subId: s0.subscriptionCounter.plus(1),
                     customer : user,
@@ -176,12 +178,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     const NO_WAIT = 0, AUTO = -1;
     const __FROM  =-1, __TO = -2;
-    [  [5, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID],
-       [6, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID],
-       [6,  __FROM, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.PAID],
-       [6, USER_01, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.EXPIRED],
+    [
+       [5, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ],
+       [6, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ],
+       [6,  __FROM, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.PAID      ],
+       [6, USER_01, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.EXPIRED   ],
        [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.CHARGEABLE],
-       [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID]
+       [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ]
     ].forEach( (chargeDef, i) => {
         let [subId, user, status0, waitSec, status1, status2] = chargeDef;
         it(i+':charging subscription id:'+subId, function() {
@@ -275,7 +278,44 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     });
             })
         })
-    })
+    });
+
+    [
+       [7, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, /* hold here */ NO_WAIT, /* unhold here */,  SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.EXPIRED ]
+    ].forEach( (chargeDef, i) => {
+        let [subId, user, status0, waitSec0, status_beforeHold,            /*hold here*/ waitSec_afterHold, /* unhold here */ status_afterUnhold, waitSec_afterUnhold, status_end] = chargeDef;
+        var prevState
+        it('hold/unhold subscriptiom', function(){
+            return assertSubscription(subId, i+': Check: PreCondition', (s0)=>({
+                status: status0
+            }))
+            .then(prevState => evm_increaseTime(waitSec0)
+                .then(()=> assertSubscription(prevState, i+': wait before hold', (s0)=>({
+                    status: status_beforeHold
+                }))))
+            .then(prevState => snt.holdSubscription(subId, {from:user})
+                .then(tx=> assertSubscription(prevState, i+': just after hold', (s0)=>({
+                    status: SUB_STATUS.HOLD,
+                    onHoldSince: ethNow(tx.receipt.blockNumber)
+                }))))
+            .then(prevState => evm_increaseTime(waitSec_afterHold)
+                .then(()=> assertSubscription(prevState, i+': wait after hold', (s0)=>({
+                    status: SUB_STATUS.HOLD
+                }))))
+            .then(prevState => snt.unholdSubscription(subId, {from:user})
+                .then(tx=> assertSubscription(prevState, i+': just after unhold', (s0)=>({
+                    status     : status_afterUnhold,
+                    onHoldSince: 0,
+                    paidUntil  : prevState.paidUntil.plus(ethNow(tx.receipt.blockNumber))
+                                                    .minus(prevState.onHoldSince)
+                }))))
+            .then(prevState => evm_increaseTime(waitSec_afterUnhold)
+                .then(()=> assertSubscription(prevState, i+': wait after unhold', (s0)=>({
+                    status: status_end
+                }))))
+        })
+    });
+
 
     function assertDeposit(depositId, assertMsg, assertFunc){
       let D = new Map();
