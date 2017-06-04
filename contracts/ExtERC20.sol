@@ -39,13 +39,12 @@ contract ExtERC20 is ERC20, SubscriptionBase {
 }
 
 contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
-    uint16 constant SECONDS_IN_HOUR = 60 * 60;
     address beneficiary;
     address admin;
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
 
     function ExtERC20Impl(){
-        beneficiary = beneficiary = msg.sender;
+        beneficiary = msg.sender;
     }
 
     function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success) {
@@ -257,7 +256,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
     }
 
     function _amountToCharge(Subscription storage sub) internal returns (uint) {
-        return sub.pricePerHour * sub.chargePeriod / SECONDS_IN_HOUR;
+        return sub.pricePerHour * sub.chargePeriod / 1 hours;
     }
 
     function _burn(uint amount) internal returns (bool success){
