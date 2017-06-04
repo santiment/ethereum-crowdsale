@@ -81,6 +81,6 @@ contract PaymentListener is SubscriptionBase {
 
     function onPayment(address _from, uint _value, bytes _paymentData) returns (bool);
     function onSubExecuted(uint subId) returns (bool);
-    function onSubscriptionChange(uint subId, SubChange status, bytes _paymentData) returns (bool);
+    function onSubscriptionChange(SubChange status, uint subId, bytes _paymentData) returns (bool);
 
 }

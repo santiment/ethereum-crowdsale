@@ -189,7 +189,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         //depositAmount is stored in the sub: so burn it from customer's account.
         assert (_burn(newSub.depositAmount));
         //ToDo: use offerId!!!
-        assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, SubChange.NEW, newSub.descriptor));
+        assert (PaymentListener(newSub.transferTo).onSubscriptionChange(SubChange.NEW, newSubId, newSub.descriptor));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         return (subscriptionCounter = newSubId);
     }
@@ -200,7 +200,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         sub.expireOn = max(now, sub.paidUntil);
         if (!forced && msg.sender != _to) {
             //ToDo: handler throws?
-            PaymentListener(_to).onSubscriptionChange(subId, SubChange.CANCEL, "");
+            PaymentListener(_to).onSubscriptionChange(SubChange.CANCEL, subId, "");
         }
     }
 
@@ -219,7 +219,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince > 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, SubChange.HOLD,"" )) {
+        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(SubChange.HOLD, subId, "" )) {
             sub.onHoldSince = now;
             return true;
         } else { return false; }
@@ -230,7 +230,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince == 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(subId, SubChange.UNHOLD,"")) {
+        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(SubChange.UNHOLD, subId, "")) {
             sub.paidUntil += now - sub.onHoldSince;
             sub.onHoldSince = 0;
             return true;
