@@ -42,8 +42,8 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     address public admin;  //admin should be a multisig contract implementing advanced sign/recovery strategies
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
 
-    function ExtERC20Impl(){
-        beneficiary = msg.sender;
+    function ExtERC20Impl() {
+        beneficiary = admin = msg.sender;
     }
 
     function setPlatformFeePer10000(uint newFee) public only(admin) {
@@ -53,6 +53,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function setAdmin(address newAdmin) public only(admin) {
         admin = newAdmin;
+    }
+
+    function setBeneficiary(address newBeneficiary) public only(admin) {
+        beneficiary = newBeneficiary;
     }
 
     function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success) {
