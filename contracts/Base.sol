@@ -48,6 +48,7 @@ contract Base {
 
 contract SubscriptionBase {
     enum Status {OFFER, PAID, CHARGEABLE, ON_HOLD, EXPIRED}
+    enum SubChange {NEW, HOLD, UNHOLD, CANCEL, POSTPONE}
 
     struct Subscription {
         address transferFrom;
@@ -80,6 +81,6 @@ contract PaymentListener is SubscriptionBase {
 
     function onPayment(address _from, uint _value, bytes _paymentData) returns (bool);
     function onSubExecuted(uint subId) returns (bool);
-    function onSubscriptionChange(uint subId, Status status, bytes _paymentData) returns (bool);
+    function onSubscriptionChange(uint subId, SubChange status, bytes _paymentData) returns (bool);
 
 }
