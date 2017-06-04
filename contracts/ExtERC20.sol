@@ -162,7 +162,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
             paidUntil    : 0,
             chargePeriod : _chargePeriod,
             depositAmount: _depositAmount,
-    //ToDo: **** implement startOn
             startOn      : _startOn,
             expireOn     : _expireOn,
             execCounter  : _offerLimit,
@@ -173,24 +172,26 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
-  //ToDo: do we really need an executionCounter in offer stored in SNT?
-  //      Should the Provider provide this advanced info about the offer?
-        assert(subscriptions[_offerId].execCounter-- > 0);
-
         Subscription storage offer = subscriptions[_offerId];
+        assert(offer.startOn == 0  || offer.startOn <= now);
+        assert(offer.expireOn == 0 || offer.expireOn > now);
+        assert(offer.execCounter-- > 0);
+
         newSubId = subscriptionCounter + 1;
+        //create a clone of an offer...
         Subscription storage newSub = subscriptions[newSubId] = offer;
+        //... and adjust some fields specific to subscription
         newSub.transferFrom = msg.sender;
         newSub.execCounter = 0;
-  //ToDo: check startOn >= now
         newSub.paidUntil = newSub.startOn = max(_startOn, now);
         newSub.expireOn = _expireOn;
-  //ToDo: use offerId!!!
-        subscriptionCounter = newSubId;
+
+        //depositAmount is stored in the sub: so burn it from customer's account.
         assert (_burn(newSub.depositAmount));
+        //ToDo: use offerId!!!
         assert (PaymentListener(newSub.transferTo).onSubscriptionChange(newSubId, Status.PAID, newSub.descriptor));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
-        return newSubId;
+        return (subscriptionCounter = newSubId);
     }
 
     function cancelSubscription(uint subId, bool forced) public {
