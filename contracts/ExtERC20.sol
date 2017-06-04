@@ -1,6 +1,5 @@
 pragma solidity ^0.4.8;
 
-import "./Base.sol";
 import "./ERC20.sol";
 
 //Desicion made.
@@ -38,13 +37,22 @@ contract ExtERC20 is ERC20, SubscriptionBase {
 
 }
 
-contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
-    address beneficiary;
-    address admin;
+contract ExtERC20Impl is ExtERC20, ERC20Impl {
+    address public beneficiary;
+    address public admin;  //admin should be a multisig contract implementing advanced sign/recovery strategies
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
 
     function ExtERC20Impl(){
         beneficiary = msg.sender;
+    }
+
+    function setPlatformFeePer10000(uint newFee) public only(admin) {
+        assert (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
+        PLATFORM_FEE_PER_10000 = newFee;
+    }
+
+    function setAdmin(address newAdmin) public only(admin) {
+        admin = newAdmin;
     }
 
     function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success) {
@@ -99,6 +107,7 @@ contract ExtERC20Impl is ExtERC20, Base, ERC20Impl {
 
     function _fulfillPayment(address _from, address _to, uint _value, uint subId) internal returns (bool success) {
         var fee = _fee(_value);
+        assert (fee <= _value); //internal sanity check
         if (balances[_from] >= _value && balances[_to] + _value > balances[_to]) {
             balances[_from] -= _value;
             balances[_to] += _value - fee;

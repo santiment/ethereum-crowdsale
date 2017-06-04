@@ -17,6 +17,16 @@ contract Base {
         _;
     }
 
+    /**
+     * validate manupulated arguments in msg.data
+     *
+     * http://vessenes.com/the-erc20-short-address-attack-explained/
+     */
+    modifier validMsgDataLen(uint argSize) {
+       if (msg.data.length != argSize + 4) throw;
+       _;
+    }
+
     //prevents reentrancy attacs
     bool private locked = false;
     modifier noReentrancy() {
