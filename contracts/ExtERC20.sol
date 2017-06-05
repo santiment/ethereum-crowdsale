@@ -42,6 +42,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     address public beneficiary;
     address public admin;  //admin should be a multisig contract implementing advanced sign/recovery strategies
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
+    uint public TOTAL_ON_DEPOSIT;
 
     function ExtERC20Impl() {
         beneficiary = admin = msg.sender;
@@ -218,6 +219,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         var depositAmount = subscriptions[subId].depositAmount;
         subscriptions[subId].depositAmount = 0;
         balances[msg.sender]+=depositAmount;
+        TOTAL_ON_DEPOSIT -= depositAmount;
     }
 
     // a service can allow/disallow a hold/unhold request
