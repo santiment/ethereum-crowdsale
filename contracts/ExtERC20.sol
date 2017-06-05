@@ -147,7 +147,9 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         } else if (sub.transferFrom==0) {
             return Status.OFFER;
         } else if (sub.paidUntil >= sub.expireOn) {
-            return now < sub.expireOn ? Status.CANCELED : Status.EXPIRED;
+            return now < sub.expireOn
+                ? Status.CANCELED
+                : Status.EXPIRED;
         } else if (sub.paidUntil <= now) {
             return Status.CHARGEABLE;
         } else {
@@ -229,7 +231,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         } else { return false; }
     }
 
-    // a service can allow/disallow hold/unhold
+    // a service can allow/disallow a hold/unhold request
     function unholdSubscription(uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince == 0) { return true; }
