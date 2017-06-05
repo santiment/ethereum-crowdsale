@@ -243,12 +243,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         } else { return false; }
     }
 
-    //ToDo:  return or throw?
     function createDeposit(uint _value, bytes _descriptor) public returns (uint subId) {
       return _createDeposit(msg.sender, _value, _descriptor);
     }
 
-    //ToDo: only sender allowed?
     function claimDeposit(uint depositId) public {
         return _claimDeposit(depositId, msg.sender);
     }
@@ -261,8 +259,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         subscriptions[subId].depositAmount = 0;
     }
 
-
-    function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint subId) {
+    function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
         if (balances[owner] >= _value) {
             balances[owner] -= _value;
             deposits[++depositCounter] = Deposit ({
@@ -276,7 +273,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function _claimDeposit(uint depositId, address returnTo) internal {
-        if (deposits[depositId].owner == msg.sender) {
+        if (deposits[depositId].owner == returnTo) {
             balances[returnTo] += deposits[depositId].value;
             delete deposits[depositId];
             DepositClosed(depositId);
