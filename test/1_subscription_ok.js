@@ -228,7 +228,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return assertSubscription(subId, i+':Check: PreCondition', (s0)=>({
                 status : SUB_STATUS.PAID
             })).then(s0 => {
-                return snt.cancelSubscription(subId, false)  //method under test
+                return snt.cancelSubscription(subId)  //method under test
                 .then(tx => assertSubscription(s0, i+':Check: after sub cancelled', (s1)=>({
                     expireOn : s1.paidUntil
                 })));

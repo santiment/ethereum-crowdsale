@@ -20,7 +20,8 @@ contract ExtERC20 is ERC20, SubscriptionBase {
 
     function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) returns (uint newSubId);
-    function cancelSubscription(uint subId, bool forced);
+    function cancelSubscription(uint subId);
+    function cancelSubscription(uint subId, uint gasReserve);
     function holdSubscription (uint subId) returns (bool success);
     function unholdSubscription(uint subId) returns (bool success);
     function executeSubscription(uint subId) returns (bool success);
@@ -193,13 +194,18 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return (subscriptionCounter = newSubId);
     }
 
-    function cancelSubscription(uint subId, bool forced) public {
+    function cancelSubscription(uint subId) public {
+        return cancelSubscription(subId, 0);
+    }
+
+    function cancelSubscription(uint subId, uint gasReserve) public {
         Subscription storage sub = subscriptions[subId];
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
-        if (!forced && msg.sender != _to) {
-            //ToDo: handler throws?
-            PaymentListener(_to).onSubCanceled(subId);
+        if (msg.sender != _to) {
+            //supress handler throwing error; reserve enough gas to finish the call
+            //don't evaluate .call's return value because it is an event handler (fired and forgot)
+            _to.call.gas(msg.gas-max(gasReserve,1000))(bytes4(sha3("onSubCanceled(uint)")), subId);
         }
     }
 
