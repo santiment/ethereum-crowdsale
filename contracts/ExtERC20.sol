@@ -3,9 +3,13 @@ pragma solidity ^0.4.8;
 import "./ERC20.sol";
 
 //Desicion made.
-// 1 - Provider is solely responsible to consider failed sub charge as an error and stop Service,
-//    therefore there is no separate error state or counter for that in Token Contract
-
+// 1 - Provider is solely responsible to consider failed sub charge as an error and stop the service,
+//    therefore there is no separate error state or counter for that in this Token Contract.
+//
+// 2 - Any call originated from the user (tx.origin==msg.sender) should throw an exception on error,
+//     but it should return "false" on error if called from other contract (tx.origin!=msg.sender).
+//     Reason: thrown exception are easier to see in wallets, returned boolean values are easier to evaluate in the code of the calling contract.
+//
 //ToDo:
 // 4 - check: all functions for access modifiers: _from, _to, _others
 // 5 - check: all function for re-entrancy
@@ -15,8 +19,8 @@ import "./ERC20.sol";
 // Given: subscription one year:
 
 contract ExtERC20 is ERC20, SubscriptionBase {
-    function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
-    function paymentFrom(address _from, PaymentListener _to, uint _value, bytes _paymentData) returns (bool success);
+    function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) returns (bool success);
+    function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
     function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) returns (uint newSubId);
@@ -62,8 +66,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         beneficiary = newBeneficiary;
     }
 
-    //ToDo: move addresses behind the value (preventing zero-trailing address attack)
-    function paymentTo(PaymentListener _to, uint _value, bytes _paymentData) public returns (bool success) {
+    function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
         if (_fulfillPayment(msg.sender, _to, _value, 0)) {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
@@ -72,8 +75,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
           else { return false; }
     }
 
-    //ToDo: move addresses behind the value (preventing zero-trailing address attack)
-    function paymentFrom(address _from, PaymentListener _to, uint _value, bytes _paymentData) public returns (bool success) {
+    function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
         if (_fulfillPreapprovedPayment(_from, _to, _value)) {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
@@ -96,7 +98,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
                 return true;
             }
         }
-        //ToDo: Possible another solution: throw always, but catch in caller.
         if (tx.origin==msg.sender) { throw; }
         else { return false; }
     }
