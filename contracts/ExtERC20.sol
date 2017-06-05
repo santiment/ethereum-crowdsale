@@ -42,7 +42,8 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     address public beneficiary;
     address public admin;  //admin should be a multisig contract implementing advanced sign/recovery strategies
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
-    uint public TOTAL_ON_DEPOSIT;
+    uint public totalOnDeposit;
+    uint public totalInCirculation;
 
     function ExtERC20Impl() {
         beneficiary = admin = msg.sender;
@@ -190,12 +191,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         newSub.paidUntil = newSub.startOn = max(_startOn, now);
         newSub.expireOn = _expireOn;
 
-        //depositAmount is stored in the sub...
-        TOTAL_ON_DEPOSIT += newSub.depositAmount;
-        //...so burn it from customer's account.
-        assert (_burn(newSub.depositAmount));
-        assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
+        //depositAmount is already stored in the sub, so burn the same amount from customer's account.
+        assert (_burnForDeposit(msg.sender, newSub.depositAmount));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
+        assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
         return (subscriptionCounter = newSubId);
     }
 
@@ -216,12 +215,12 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
 
     function claimSubscriptionDeposit(uint subId) public {
+        uint depositAmount;
         assert (currentStatus(subId) == Status.EXPIRED);
         assert (subscriptions[subId].transferFrom == msg.sender);
-        var depositAmount = subscriptions[subId].depositAmount;
+        assert ((depositAmount = subscriptions[subId].depositAmount) > 0);
         subscriptions[subId].depositAmount = 0;
-        balances[msg.sender]+=depositAmount;
-        TOTAL_ON_DEPOSIT -= depositAmount;
+        _mintFromDeposit(msg.sender, depositAmount);
     }
 
     // a service can allow/disallow a hold/unhold request
@@ -264,23 +263,19 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
-        if (balances[owner] >= _value) {
-            balances[owner] -= _value;
-            deposits[++depositCounter] = Deposit ({
-                owner : owner,
-                value : _value,
-                descriptor : _descriptor
-            });
-            TOTAL_ON_DEPOSIT += _value;
-            NewDeposit(depositCounter, _value, owner);
-            return depositCounter;
-        } else { throw; } //ToDo:
+        assert (_burnForDeposit(owner,_value));
+        deposits[++depositCounter] = Deposit ({
+            owner : owner,
+            value : _value,
+            descriptor : _descriptor
+        });
+        NewDeposit(depositCounter, _value, owner);
+        return depositCounter;
     }
 
     function _claimDeposit(uint depositId, address returnTo) internal {
         if (deposits[depositId].owner == returnTo) {
-            TOTAL_ON_DEPOSIT -= deposits[depositId].value;
-            balances[returnTo] += deposits[depositId].value;
+            _mintFromDeposit(returnTo, deposits[depositId].value);
             delete deposits[depositId];
             DepositClosed(depositId);
         } else { throw; }
@@ -290,9 +285,17 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return sub.pricePerHour * sub.chargePeriod / 1 hours;
     }
 
-    function _burn(uint amount) internal returns (bool success){
-        if (balances[msg.sender] >= amount) {
-            balances[msg.sender] -= amount;
+    function _mintFromDeposit(address owner, uint amount) internal {
+        balances[owner] += amount;
+        totalOnDeposit -= amount;
+        totalInCirculation += amount;
+    }
+
+    function _burnForDeposit(address owner, uint amount) internal returns (bool success){
+        if (balances[owner] >= amount) {
+            balances[owner] -= amount;
+            totalOnDeposit += amount;
+            totalInCirculation -= amount;
             return true;
         } else { return false; }
     }
