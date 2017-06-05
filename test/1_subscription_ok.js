@@ -46,7 +46,7 @@ const evm_call = (_method, _params) => web3_sendAsync({
     id: new Date().getTime()
 })
 const evm_mine         = ()     => evm_call('evm_mine')
-const evm_increaseTime = (tsec) => evm_call('evm_increaseTime',[tsec.isBigNumber ? tsec.toString() : tsec]);
+const evm_increaseTime = (tsec) => evm_call('evm_increaseTime',[tsec.isBigNumber ? tsec.toNumber() : tsec]);
 const evm_snapshot     = ()     => evm_call('evm_snapshot').then(r=>{snapshotNrStack.push(r.result); return r});
 const evm_revert       = (num)  => evm_call('evm_revert',[num||snapshotNrStack.pop()]);
 const snapshotNrStack  = [];  //workaround for broken evm_revert without shapshot provided.
