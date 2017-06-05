@@ -36,6 +36,23 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
     function claimDeposit(uint depositId);
 
+    function subscriptionDetails(uint subId) public constant returns(
+        address transferFrom,
+        address transferTo,
+        uint pricePerHour,
+        uint chargePeriod,
+        uint startOn,
+        bytes descriptor
+    );
+
+    function subscriptionStatus(uint subId) public constant returns(
+        uint depositAmount,
+        uint expireOn,
+        uint execCounter,
+        uint paidUntil,
+        uint onHoldSince
+    );
+
     enum PaymentStatus {OK, BALANCE_ERROR, APPROVAL_ERROR}
 
     event Payment(address _from, address _to, uint _value, uint _fee, address caller, PaymentStatus status, uint subId);
@@ -64,6 +81,29 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function setBeneficiary(address newBeneficiary) public only(admin) {
         beneficiary = newBeneficiary;
+    }
+
+    function subscriptionDetails(uint subId) public constant returns(
+        address transferFrom,
+        address transferTo,
+        uint pricePerHour,
+        uint chargePeriod,
+        uint startOn,
+        bytes descriptor
+    ) {
+        Subscription sub = subscriptions[subId];
+        return (sub.transferFrom, sub.transferTo, sub.pricePerHour, sub.chargePeriod, sub.startOn, sub.descriptor);
+    }
+
+    function subscriptionStatus(uint subId) public constant returns(
+        uint depositAmount,
+        uint expireOn,
+        uint execCounter,
+        uint paidUntil,
+        uint onHoldSince
+    ) {
+        Subscription sub = subscriptions[subId];
+        return (sub.depositAmount, sub.expireOn, sub.execCounter, sub.paidUntil, sub.onHoldSince);
     }
 
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
@@ -219,7 +259,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         }
     }
 
-
     function claimSubscriptionDeposit(uint subId) public {
         uint depositAmount;
         assert (currentStatus(subId) == Status.EXPIRED);
@@ -234,7 +273,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince > 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, true)) {
+        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, true)) {
             sub.onHoldSince = now;
             return true;
         } else { return false; }
@@ -245,7 +284,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince == 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, false)) {
+        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, false)) {
             sub.paidUntil += now - sub.onHoldSince;
             sub.onHoldSince = 0;
             return true;

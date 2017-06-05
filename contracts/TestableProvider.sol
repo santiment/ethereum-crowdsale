@@ -30,9 +30,19 @@ contract TestableProvider is PaymentListener, Base {
         return true;
     }
 
-    function onSubUnHold(uint subId, bool isOnHold) returns (bool) {
-        //accept everything;
+    function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool) {
+        var (transferFrom, transferTo, pricePerHour, chargePeriod, startOn, descriptor) = SNT(snt).subscriptionDetails(subId);
+        assert (transferFrom == caller); //accept hold/unhold requests only from subscription owner.
+
+        _assertSubStatus(subId);
+
         return true;
+    }
+
+    function _assertSubStatus(uint subId) internal {
+        var (depositAmount, expireOn, execCounter, paidUntil, onHoldSince) = SNT(snt).subscriptionStatus(subId);
+        //ToDo: improve tests for test this condition
+        //assert (paidUntil >= now); //accept hold/unhold requests only from subscription without debts.
     }
 
     function onSubNew(uint newSubId, uint offerId) returns (bool) {
@@ -40,7 +50,7 @@ contract TestableProvider is PaymentListener, Base {
         return true;
     }
 
-    function onSubCanceled(uint subId) returns (bool) {
+    function onSubCanceled(uint subId, address caller) returns (bool) {
         //accept everything;
         return true;
     }
