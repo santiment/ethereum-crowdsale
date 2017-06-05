@@ -30,7 +30,17 @@ contract TestableProvider is PaymentListener, Base {
         return true;
     }
 
-    function onSubscriptionChange(SubChange change, uint subId, bytes _paymentData) returns (bool) {
+    function onSubUnHold(uint subId, bool isOnHold) returns (bool) {
+        //accept everything;
+        return true;
+    }
+
+    function onSubNew(uint newSubId, uint offerId) returns (bool) {
+        //accept everything;
+        return true;
+    }
+
+    function onSubCanceled(uint subId) returns (bool) {
         //accept everything;
         return true;
     }

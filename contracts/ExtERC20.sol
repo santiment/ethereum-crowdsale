@@ -178,7 +178,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         assert(offer.execCounter-- > 0);
 
         newSubId = subscriptionCounter + 1;
-        //create a clone of an offer...
+        //create a clone of the offer...
         Subscription storage newSub = subscriptions[newSubId] = offer;
         //... and adjust some fields specific to subscription
         newSub.transferFrom = msg.sender;
@@ -188,8 +188,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
         //depositAmount is stored in the sub: so burn it from customer's account.
         assert (_burn(newSub.depositAmount));
-        //ToDo: use offerId!!!
-        assert (PaymentListener(newSub.transferTo).onSubscriptionChange(SubChange.NEW, newSubId, newSub.descriptor));
+        assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         return (subscriptionCounter = newSubId);
     }
@@ -200,7 +199,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         sub.expireOn = max(now, sub.paidUntil);
         if (!forced && msg.sender != _to) {
             //ToDo: handler throws?
-            PaymentListener(_to).onSubscriptionChange(SubChange.CANCEL, subId, "");
+            PaymentListener(_to).onSubCanceled(subId);
         }
     }
 
@@ -219,7 +218,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince > 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(SubChange.HOLD, subId, "" )) {
+        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, true)) {
             sub.onHoldSince = now;
             return true;
         } else { return false; }
@@ -230,7 +229,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription storage sub = subscriptions[subId];
         if (sub.onHoldSince == 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubscriptionChange(SubChange.UNHOLD, subId, "")) {
+        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, false)) {
             sub.paidUntil += now - sub.onHoldSince;
             sub.onHoldSince = 0;
             return true;
