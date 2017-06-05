@@ -209,6 +209,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function cancelSubscription(uint subId, uint gasReserve) public {
         Subscription storage sub = subscriptions[subId];
+        assert (sub.transferFrom == msg.sender); //only subscription owner is allowed to cancel it
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
         if (msg.sender != _to) {
