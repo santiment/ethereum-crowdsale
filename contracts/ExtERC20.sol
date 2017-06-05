@@ -190,7 +190,9 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         newSub.paidUntil = newSub.startOn = max(_startOn, now);
         newSub.expireOn = _expireOn;
 
-        //depositAmount is stored in the sub: so burn it from customer's account.
+        //depositAmount is stored in the sub...
+        TOTAL_ON_DEPOSIT += newSub.depositAmount;
+        //...so burn it from customer's account.
         assert (_burn(newSub.depositAmount));
         assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
@@ -269,6 +271,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
                 value : _value,
                 descriptor : _descriptor
             });
+            TOTAL_ON_DEPOSIT += _value;
             NewDeposit(depositCounter, _value, owner);
             return depositCounter;
         } else { throw; } //ToDo:
@@ -276,6 +279,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function _claimDeposit(uint depositId, address returnTo) internal {
         if (deposits[depositId].owner == returnTo) {
+            TOTAL_ON_DEPOSIT -= deposits[depositId].value;
             balances[returnTo] += deposits[depositId].value;
             delete deposits[depositId];
             DepositClosed(depositId);
