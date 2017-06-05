@@ -29,7 +29,7 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function holdSubscription (uint subId) returns (bool success);
     function unholdSubscription(uint subId) returns (bool success);
     function executeSubscription(uint subId) returns (bool success);
-    function postponeDueDate(uint subId, uint newDueDate);
+    function postponeDueDate(uint subId, uint newDueDate) returns (bool success);
     function currentStatus(uint subId) constant returns(Status status);
 
     function paybackSubscriptionDeposit(uint subId);
@@ -102,10 +102,14 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         else { return false; }
     }
 
-    function postponeDueDate(uint subId, uint newDueDate) public {
+    function postponeDueDate(uint subId, uint newDueDate) public returns (bool success){
         Subscription storage sub = subscriptions[subId];
         assert (sub.transferTo == msg.sender); //only Service Provider is allowed to postpone the DueDate
-        if (sub.paidUntil < newDueDate) sub.paidUntil = newDueDate;
+        if (sub.paidUntil >= newDueDate) { return false; }
+        else {
+            sub.paidUntil = newDueDate;
+            return true;
+        }
     }
 
     function _fulfillPreapprovedPayment(address _from, address _to, uint _value) internal returns (bool success) {
