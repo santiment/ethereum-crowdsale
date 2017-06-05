@@ -15,7 +15,7 @@ const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber||blockNumber).timestamp;
 const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, EXPIRED:4}
 const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'EXPIRED'}
-const SECONDS_IN_HOUR = 60*60;//
+const SECONDS_IN_HOUR = 60*60;
 
 contract('snt', function(accounts){
     var snt;
