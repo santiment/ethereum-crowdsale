@@ -1,5 +1,12 @@
 const BigNumber = require('bignumber.js');
 
+// ToDo:
+// 1 - test for paymentTo(), paymentFrom()
+// 2 - more tests on hold/unhold
+// 3 - refactor (break apart) the tests
+// 4 - sad path tests (throwing errors)
+
+
 const chai = require('chai');
 chai.use(require('chai-bignumber')());
 const assert = require('chai').assert;
