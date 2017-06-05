@@ -13,8 +13,8 @@ const web3UtilApi = require('web3/lib/utils/utils.js');
 const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber||blockNumber).timestamp;
-const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, EXPIRED:4}
-const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'EXPIRED'}
+const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4, EXPIRED:5}
+const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'CANCELED', 5:'EXPIRED'}
 const SECONDS_IN_HOUR = 60*60;
 
 contract('snt', function(accounts){
@@ -182,7 +182,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        [5, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ],
        [6, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ],
        [6,  __FROM, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.PAID      ],
-       [6, USER_01, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.EXPIRED   ],
+       [6, USER_01, SUB_STATUS.PAID      ,    AUTO, SUB_STATUS.PAID      , SUB_STATUS.CANCELED  ],
        [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.CHARGEABLE],
        [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ]
     ].forEach( (chargeDef, i) => {
@@ -229,13 +229,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 status : SUB_STATUS.PAID
             })).then(s0 => {
                 return snt.cancelSubscription(subId)  //method under test
-                .then(tx => assertSubscription(s0, i+':Check: after sub cancelled', (s1)=>({
+                .then(tx => assertSubscription(s0, i+':Check: after sub canceled', (s1)=>({
                     expireOn : s1.paidUntil
                 })));
             }).then(s0 => {
                 return evm_increaseTime(s0.expireOn.minus(ethNow()))
                 .then(tx => assertSubscription(s0, i+':Check: after waiting for paid period is over', (s1)=>({
-                    status : SUB_STATUS.EXPIRED
+                    status : SUB_STATUS.CANCELED
                 })));
             }).then(s0 => {
                 return snt.paybackSubscriptionDeposit(subId) //method under test
