@@ -18,11 +18,11 @@ import "./ERC20.sol";
 //Ask:
 // Given: subscription one year:
 
-contract ExtERC20 is ERC20, SubscriptionBase {
+contract ExtERC20 is ERC20, SubscriptionBase, XRateProvider {
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) returns (bool success);
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
-    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
+    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) returns (uint newSubId);
     function cancelSubscription(uint subId);
     function cancelSubscription(uint subId, uint gasReserve);
@@ -35,6 +35,7 @@ contract ExtERC20 is ERC20, SubscriptionBase {
     function paybackSubscriptionDeposit(uint subId);
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
     function claimDeposit(uint depositId);
+    function registerXRateProvider(XRateProvider addr) public returns (uint16 xrateProviderId);
 
     function subscriptionDetails(uint subId) public constant returns(
         address transferFrom,
@@ -68,7 +69,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function ExtERC20Impl() {
         beneficiary = admin = msg.sender;
+        xrateProviders.push(XRateProvider(this));
     }
+
+    function getRate() returns(uint) { return 1; }
 
     function setPlatformFeePer10000(uint newFee) public only(admin) {
         assert (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
@@ -105,6 +109,14 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         Subscription sub = subscriptions[subId];
         return (sub.depositAmount, sub.expireOn, sub.execCounter, sub.paidUntil, sub.onHoldSince);
     }
+
+    function registerXRateProvider(XRateProvider addr) public only(admin) returns (uint16 xrateProviderId) {
+        xrateProviderId = uint16(xrateProviders.length);
+        xrateProviders.push(addr);
+        NewXRateProvider(addr, xrateProviderId);
+    }
+
+    function getXRateProviderLength() public constant returns (uint) { return xrateProviders.length; }
 
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
         if (_fulfillPayment(msg.sender, _to, _value, 0)) {
@@ -204,19 +216,21 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         }
     }
 
-    function createSubscriptionOffer(uint _price, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor) public returns (uint subId) {
+    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor) public returns (uint subId) {
         subscriptions[++subscriptionCounter] = Subscription ({
-            transferFrom : 0,
-            transferTo   : msg.sender,
-            pricePerHour : _price,
-            paidUntil    : 0,
-            chargePeriod : _chargePeriod,
-            depositAmount: _depositAmount,
-            startOn      : _startOn,
-            expireOn     : _expireOn,
-            execCounter  : _offerLimit,
-            descriptor   : _descriptor,
-            onHoldSince  : 0
+            transferFrom    : 0,
+            transferTo      : msg.sender,
+            pricePerHour    : _price,
+            xrateProviderId : _xrateProviderId,
+            initialXrate    : _xrateProviderId == 0 ? 1 : XRateProvider(xrateProviders[_xrateProviderId]).getRate(),
+            paidUntil       : 0,
+            chargePeriod    : _chargePeriod,
+            depositAmount   : _depositAmount,
+            startOn         : _startOn,
+            expireOn        : _expireOn,
+            execCounter     : _offerLimit,
+            descriptor      : _descriptor,
+            onHoldSince     : 0
         });
         return subscriptionCounter;
     }
@@ -347,6 +361,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     mapping (uint => Subscription) public subscriptions;
     mapping (uint => Deposit) public deposits;
+    XRateProvider[] public xrateProviders;
     uint public subscriptionCounter = 0;
     uint public depositCounter = 0;
 

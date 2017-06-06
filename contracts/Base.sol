@@ -53,6 +53,8 @@ contract SubscriptionBase {
         address transferFrom;
         address transferTo;
         uint pricePerHour;
+        uint initialXrate;
+        uint16 xrateProviderId;
         uint paidUntil;
         uint chargePeriod;
         uint depositAmount;
@@ -73,6 +75,7 @@ contract SubscriptionBase {
     //ToDo: change arg order
     event NewSubscription(address customer, address service, uint offerId, uint subId);
     event NewDeposit(uint depositId, uint value, address sender);
+    event NewXRateProvider(address addr, uint16 xRateProviderId);
     event DepositClosed(uint depositId);
 }
 
@@ -84,4 +87,9 @@ contract PaymentListener is SubscriptionBase {
     function onSubCanceled(uint subId, address caller) returns (bool);
     function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool);
 
+}
+
+
+contract XRateProvider {
+    function getRate() returns (uint rate);
 }

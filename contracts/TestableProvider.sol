@@ -12,10 +12,10 @@ contract TestableProvider is PaymentListener, Base {
     }
 
     function createSubscriptionOffer (
-        uint _price, uint _chargePeriod, uint _validUntil,
+        uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _validUntil,
         uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor
     )  returns (uint subId) {
-        subId = SNT(snt).createSubscriptionOffer(_price, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
+        subId = SNT(snt).createSubscriptionOffer(_price, _xrateProviderId, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
         //if (uint(snt)>0) subId = snt.createOffer2(_price);
         NewOffer(this,subId);
     }

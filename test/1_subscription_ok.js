@@ -19,7 +19,7 @@ const TestableProvider = artifacts.require('TestableProvider');
 const web3UtilApi = require('web3/lib/utils/utils.js');
 const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
-const ethNow = blockNumber => web3.eth.getBlock(web3.eth.blockNumber||blockNumber).timestamp;
+const ethNow = blockNumber => web3.eth.getBlock(blockNumber||web3.eth.blockNumber).timestamp;
 const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4, EXPIRED:5}
 const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'CANCELED', 5:'EXPIRED'}
 const SECONDS_IN_HOUR = 60*60;
@@ -44,7 +44,7 @@ const evm_call = (_method, _params) => web3_sendAsync({
     method: _method,
     params: _params||[],
     id: new Date().getTime()
-})
+});
 const evm_mine         = ()     => evm_call('evm_mine')
 const evm_increaseTime = (tsec) => evm_call('evm_increaseTime',[tsec.isBigNumber ? tsec.toNumber() : tsec]);
 const evm_snapshot     = ()     => evm_call('evm_snapshot').then(r=>{snapshotNrStack.push(r.result); return r});
@@ -99,17 +99,17 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
 
     [
-        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:$nt(10), chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:$nt(10), chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         let offerId = i+1;
         it('should create a valid offer #'+i, function() {
             var now = ethNow();
             let expireOn = now + offerDef.expireOn;
             return myProvider.createSubscriptionOffer (
-                offerDef.price, offerDef.chargePeriod, expireOn, offerDef.offerLimit,
+                offerDef.price, offerDef.xrateProviderId, offerDef.chargePeriod, expireOn, offerDef.offerLimit,
                 offerDef.depositAmount, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER}
             )
@@ -118,17 +118,19 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 offerId  : offerId
             })))
             .then(evt => assertSubscription(offerId, i+': Check: newly created subscription #'+offerId, (s) => ({
-                transferFrom  : 0,
-                transferTo    : myProvider.address,
-                pricePerHour  : offerDef.price,
-                paidUntil     : 0,
-                chargePeriod  : offerDef.chargePeriod,
-                depositAmount : offerDef.depositAmount,
-                startOn       : offerDef.startOn,
-                expireOn      : now + offerDef.expireOn,
-                execCounter   : offerDef.offerLimit,
-                descriptor    : offerDef.descriptor,
-                onHoldSince   : 0,
+                transferFrom   : 0,
+                transferTo     : myProvider.address,
+                pricePerHour   : offerDef.price,
+                xrateProviderId: offerDef.xrateProviderId,
+                initialXrate    : offerDef.initialXrate,
+                paidUntil      : 0,
+                chargePeriod   : offerDef.chargePeriod,
+                depositAmount  : offerDef.depositAmount,
+                startOn        : offerDef.startOn,
+                expireOn       : now + offerDef.expireOn,
+                execCounter    : offerDef.offerLimit,
+                descriptor     : offerDef.descriptor,
+                onHoldSince    : 0,
                 status: SUB_STATUS.OFFER
             })));
         });
@@ -177,7 +179,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     subscriptionCounter : s0.subscriptionCounter.plus(1)
                 })))
                 .then(e => assertSubscription(s0, 'Check: offer after accept', (s1) => ({
-                    execCounter : s0.execCounter.minus(1)
+                    execCounter : s0.execCounter.minus(1),
+                    subscriptionCounter : s0.subscriptionCounter.plus(1)
                 })))
             })
         })
@@ -237,12 +240,14 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             })).then(s0 => {
                 return snt.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
                 .then(tx => assertSubscription(s0, i+':Check: after sub canceled', (s1)=>({
-                    expireOn : s1.paidUntil
+                    expireOn : s1.paidUntil,
+                    status : SUB_STATUS.CANCELED
                 })));
             }).then(s0 => {
-                return evm_increaseTime(s0.expireOn.minus(ethNow()))
-                .then(tx => assertSubscription(s0, i+':Check: after waiting for paid period is over', (s1)=>({
-                    status : SUB_STATUS.CANCELED
+                let delay=BigNumber.max(s0.expireOn.minus(ethNow()), s0.paidUntil.minus(ethNow())).plus(1);
+                return evm_increaseTime(delay).then(evm_mine)
+                .then(tx => assertSubscription(s0, i+':Check: after waiting for paid period is over', (s1)=> ({
+                    status : SUB_STATUS.EXPIRED
                 })));
             }).then(s0 => {
                 return snt.paybackSubscriptionDeposit(subId) //method under test
@@ -253,6 +258,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             });
        });
     });
+
 
     [[USER_01, 112, web3.toHex("deposit 1")]]
     .forEach(([user, amount, info],i)=>{
@@ -287,43 +293,66 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         })
     });
 
-    [
-       [7, USER_01, SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.CHARGEABLE, /* hold here */ NO_WAIT, /* unhold here */,  SUB_STATUS.CHARGEABLE, NO_WAIT, SUB_STATUS.EXPIRED ]
-    ].forEach( (chargeDef, i) => {
-        let [subId, user, status0, waitSec0, status_beforeHold,            /*hold here*/ waitSec_afterHold, /* unhold here */ status_afterUnhold, waitSec_afterUnhold, status_end] = chargeDef;
-        var prevState
-        it('hold/unhold subscriptiom', function(){
-            return assertSubscription(subId, i+': Check: PreCondition', (s0)=>({
-                status: status0
-            }))
-            .then(prevState => evm_increaseTime(waitSec0)
-                .then(()=> assertSubscription(prevState, i+': wait before hold', (s0)=>({
-                    status: status_beforeHold
-                }))))
-            .then(prevState => snt.holdSubscription(subId, {from:user})
-                .then(tx=> assertSubscription(prevState, i+': just after hold', (s0)=>({
-                    status: SUB_STATUS.HOLD,
+    it('subscription #7: CHARGEABLE ==> [hold/wait/unhold] ==> EXPIRED', function() {
+        let [subId, user] = [7, USER_01];
+        return assertSubscription(subId, 'Check: PreCondition', (s0)=>({
+            status: SUB_STATUS.CHARGEABLE
+        }))
+        .then(prevState => evm_increaseTime(10).then(evm_mine)
+            .then(()=> assertSubscription(prevState, 'wait before hold', (s0)=> ({
+                status: SUB_STATUS.CHARGEABLE
+            }))))
+        .then(prevState => snt.holdSubscription(subId, {from:user})
+            .then(tx=> assertSubscription(prevState, 'just after hold', (s0)=> ({
+                status: SUB_STATUS.ON_HOLD,
+                onHoldSince: ethNow(tx.receipt.blockNumber)
+            }))))
+        .then(prevState => evm_increaseTime(100000).then(evm_mine)
+            .then(()=> assertSubscription(prevState, 'wait after hold', (s0)=> ({
+                status: SUB_STATUS.ON_HOLD
+            }))))
+        .then(prevState => snt.unholdSubscription(subId, {from:user})
+            .then(tx=> assertSubscription(prevState, 'just after unhold', (s0)=> ({
+                status     : SUB_STATUS.EXPIRED,
+                onHoldSince: 0,
+                paidUntil  : prevState.paidUntil.plus(ethNow(tx.receipt.blockNumber))
+                                                .minus(prevState.onHoldSince)
+            }))))
+    })
+
+    it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED')
+
+/*
+    it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED', function() {
+        let [subId, user] = [7, USER_01];
+        return assertSubscription(subId, 'Check: PreCondition', (s0)=>({
+            status: SUB_STATUS.CHARGEABLE
+        }))
+        .then(s0 => snt.executeSubscription(subId, {from:user})
+            .then(tx => collectPaymentData(subId))
+            .then(s0 => snt.holdSubscription(subId, {from:user})
+                .then(tx=> assertSubscription(s0, 'just after hold', (s1)=>({
+                    status: SUB_STATUS.ON_HOLD,
                     onHoldSince: ethNow(tx.receipt.blockNumber)
                 }))))
-            .then(prevState => evm_increaseTime(waitSec_afterHold)
-                .then(()=> assertSubscription(prevState, i+': wait after hold', (s0)=>({
-                    status: SUB_STATUS.HOLD
+            .then(s0 => evm_increaseTime(100000).then(evm_mine)
+                .then(() => assertSubscription(s0, 'wait after hold', (s1)=>({
+                    status: SUB_STATUS.ON_HOLD
                 }))))
-            .then(prevState => snt.unholdSubscription(subId, {from:user})
-                .then(tx=> assertSubscription(prevState, i+': just after unhold', (s0)=>({
-                    status     : status_afterUnhold,
+            .then(s0 => snt.unholdSubscription(subId, {from:user})
+                .then(tx=> assertSubscription(s0, 'just after unhold', (s1)=>{console.log(ethNow(), s0, s1); return ({
+                    status     : SUB_STATUS.CANCELED,
                     onHoldSince: 0,
-                    paidUntil  : prevState.paidUntil.plus(ethNow(tx.receipt.blockNumber))
-                                                    .minus(prevState.onHoldSince)
+                    paidUntil  : s0.paidUntil.plus(ethNow(tx.receipt.blockNumber))
+                                                    .minus(s0.onHoldSince)
+                })})))
+            .then(s0 => evm_increaseTime(10000).then(evm_mine)
+                .then(()=> assertSubscription(s0, 'wait after unhold', (s1)=>({
+                    status: SUB_STATUS.EXPIRED
                 }))))
-            .then(prevState => evm_increaseTime(waitSec_afterUnhold)
-                .then(()=> assertSubscription(prevState, i+': wait after unhold', (s0)=>({
-                    status: status_end
-                }))))
-        })
-    });
-
-
+          )
+    })
+*/
     function assertDeposit(depositId, assertMsg, assertFunc){
       let D = new Map();
       return Promise.all([
@@ -357,12 +386,12 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 if (!s0) {
                     for([key,val] of Object.entries(assertMap)) {
                         if (val) {
-                            assert.equal(String(s[key]), String(val), assertMsg + " '"+key+"'"  )
+                            assert.equal(String(val), String(s[key]), assertMsg + " '"+key+"'"  )
                         }
                     }
                 } else {
-                    for([key,val] of Object.entries(s0)) {
-                        let val = assertMap[key] || s[key];
+                    for([key,val0] of Object.entries(s0)) {
+                        let val = assertMap.hasOwnProperty(key) ? assertMap[key] : val0;
                         assert.equal(String(val), String(s[key]), assertMsg + " '"+key+"'"  )
                     }
                 }
