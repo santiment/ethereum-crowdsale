@@ -18,7 +18,7 @@ import "./ERC20.sol";
 //Ask:
 // Given: subscription one year:
 
-contract ExtERC20 is ERC20, SubscriptionBase, XRateProvider {
+contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) returns (bool success);
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
@@ -72,7 +72,8 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         xrateProviders.push(XRateProvider(this));
     }
 
-    function getRate() returns(uint) { return 1; }
+    function getRate() returns(uint)   { return 1;      }
+    function getCode() returns(string) { return name();  }
 
     function setPlatformFeePer10000(uint newFee) public only(admin) {
         assert (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
@@ -249,7 +250,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         newSub.execCounter = 0;
         newSub.paidUntil = newSub.startOn = max(_startOn, now);
         newSub.expireOn = _expireOn;
-
+        newSub.depositAmount = _applyXchangeRate(newSub.depositAmount, newSub);
         //depositAmount is already stored in the sub, so burn the same amount from customer's account.
         assert (_burnForDeposit(msg.sender, newSub.depositAmount));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
@@ -341,7 +342,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function _amountToCharge(Subscription storage sub) internal returns (uint) {
-        return sub.pricePerHour * sub.chargePeriod / 1 hours;
+        return _applyXchangeRate(sub.pricePerHour * sub.chargePeriod, sub) / 1 hours;
     }
 
     function _mintFromDeposit(address owner, uint amount) internal {
@@ -357,6 +358,12 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
             totalInCirculation -= amount;
             return true;
         } else { return false; }
+    }
+
+    function _applyXchangeRate(uint amount, Subscription storage sub) internal returns (uint){
+        return sub.xrateProviderId == 0
+            ? amount
+            : amount * XRateProvider(xrateProviders[sub.xrateProviderId]).getRate() / sub.initialXrate;
     }
 
     mapping (uint => Subscription) public subscriptions;

@@ -320,7 +320,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             }))))
     })
 
-    it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED')
+    it('subscription #7: PAID ==> [hold/wait/unhold] ==> CANCELED')
 
 /*
     it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED', function() {
