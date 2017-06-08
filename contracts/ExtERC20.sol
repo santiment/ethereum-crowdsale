@@ -16,7 +16,6 @@ import "./ERC20.sol";
 // 6 - check: all _paymentData
 //
 //   === ToDos
-//  1- accept unlimited offers
 //  2- sanity checks like startOn<expireOn
 //  3 - executeSubscription only by Customer/Provider/Admin
 //  4 - possibility for Provider set Subscription expired right now.
@@ -246,9 +245,9 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
         Subscription storage offer = subscriptions[_offerId];
-        assert(offer.startOn == 0  || offer.startOn <= now);
-        assert(offer.expireOn == 0 || offer.expireOn > now);
-        assert(offer.execCounter-- > 0);
+        assert(offer.startOn == 0     || offer.startOn <= now);
+        assert(offer.expireOn == 0    || offer.expireOn > now);
+        assert(offer.execCounter == 0 || offer.execCounter-- > 0);
 
         newSubId = subscriptionCounter + 1;
         //create a clone of the offer...
