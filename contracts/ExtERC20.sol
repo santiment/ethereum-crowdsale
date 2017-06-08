@@ -14,7 +14,15 @@ import "./ERC20.sol";
 // 4 - check: all functions for access modifiers: _from, _to, _others
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
-
+//
+//   === ToDos
+//  1- accept unlimited offers
+//  2- sanity checks like startOn<expireOn
+//  3 - executeSubscription only by Customer/Provider/Admin
+//  4 - possibility for Provider set Subscription expired right now.
+//  5 - cancel subscription by admin
+//  6 - update offer counter by provider
+//
 //Ask:
 // Given: subscription one year:
 
@@ -72,7 +80,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         xrateProviders.push(XRateProvider(this));
     }
 
-    function getRate() returns(uint)   { return 1;      }
+    function getRate() returns(uint)   { return 1;       }
     function getCode() returns(string) { return name();  }
 
     function setPlatformFeePer10000(uint newFee) public only(admin) {

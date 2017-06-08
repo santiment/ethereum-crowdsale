@@ -54,7 +54,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     before(function(){
         return evm_snapshot().then(() => {
-            return TestableSNT.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER})
+            return TestableSNT.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:4200000})
             .then( _instance =>{
                 snt = _instance;
                 return TestableProvider
