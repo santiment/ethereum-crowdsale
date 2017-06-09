@@ -15,7 +15,6 @@ import "./ERC20.sol";
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
 // 7 - check Cancel/Hold/Unhold Offer functionality
-// 8 - check payment period
 //ToDo later:
 // 0 - embed force archive subscription into sub cancellation.
 //
@@ -237,6 +236,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor) public returns (uint subId) {
         assert (_startOn < _expireOn);
+        assert (_chargePeriod <= 10 years);
         subscriptions[++subscriptionCounter] = Subscription ({
             transferFrom    : 0,
             transferTo      : msg.sender,
