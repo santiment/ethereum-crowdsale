@@ -15,7 +15,9 @@ import "./ERC20.sol";
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
 // 7 - check Cancel/Hold/Unhold Offer functionality
-// 8 - possibility for Provider set Subscription expired right now.
+// 8 - check payment period
+//ToDo later:
+// 0 - embed force archive subscription into sub cancellation.
 //
 //Ask:
 // Given: subscription one year:
