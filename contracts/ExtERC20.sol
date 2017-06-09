@@ -19,7 +19,6 @@ import "./ERC20.sol";
 //  2- sanity checks like startOn<expireOn
 //  4 - possibility for Provider set Subscription expired right now.
 //  5 - cancel subscription by admin
-//  6 - update offer counter by provider
 //
 //Ask:
 // Given: subscription one year:
@@ -29,6 +28,7 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
     function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) returns (uint subId);
+    function updateSubscriptionOffer(uint offerId, uint _offerLimit);
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) returns (uint newSubId);
     function cancelSubscription(uint subId);
     function cancelSubscription(uint subId, uint gasReserve);
@@ -246,6 +246,12 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return subscriptionCounter;
     }
 
+    function updateSubscriptionOffer(uint _offerId, uint _offerLimit) {
+        Subscription storage offer = subscriptions[_offerId];
+        assert (offer.transferTo == msg.sender); //only Provider is allowed to update the offer.
+        offer.execCounter = _offerLimit;
+    }
+
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public valid(_offerId) returns (uint newSubId) {
         assert (_startOn < _expireOn);
         assert (subscriptionCounter >= _offerId);
@@ -382,6 +388,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function _isOffer(Subscription storage sub) internal returns (bool){
         return sub.transferFrom == 0;
+    }
+
+    function _exists(Subscription storage sub) internal returns (bool){
+        return sub.transferTo != 0;   //existing subscription or offer has always transferTo set.
     }
 
     modifier valid(uint subId) {
