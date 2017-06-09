@@ -17,7 +17,6 @@ import "./ERC20.sol";
 //
 //   === ToDos
 //  2- sanity checks like startOn<expireOn
-//  3 - executeSubscription only by Customer/Provider/Admin
 //  4 - possibility for Provider set Subscription expired right now.
 //  5 - cancel subscription by admin
 //  6 - update offer counter by provider
@@ -147,6 +146,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     function executeSubscription(uint subId) public valid(subId) returns (bool) {
         Subscription storage sub = subscriptions[subId];
         assert (!_isOffer(sub));
+        assert (msg.sender == sub.transferFrom || msg.sender == sub.transferTo || msg.sender == admin);
         if (_currentStatus(sub)==Status.CHARGEABLE) {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
