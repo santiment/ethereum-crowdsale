@@ -14,11 +14,8 @@ import "./ERC20.sol";
 // 4 - check: all functions for access modifiers: _from, _to, _others
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
-//
-//   === ToDos
-//  0 - check Cancel/Hold/Unhold Offer functionality
-//  2- sanity checks like startOn<expireOn,
-//  4 - possibility for Provider set Subscription expired right now.
+// 7 - check Cancel/Hold/Unhold Offer functionality
+// 8 - possibility for Provider set Subscription expired right now.
 //
 //Ask:
 // Given: subscription one year:
@@ -37,6 +34,7 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
     function executeSubscription(uint subId) returns (bool success);
     function postponeDueDate(uint subId, uint newDueDate) returns (bool success);
     function currentStatus(uint subId) constant returns(Status status);
+    function forceArchiveSubscription(uint subId) public;
 
     function paybackSubscriptionDeposit(uint subId);
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
@@ -225,7 +223,9 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         } else if (sub.paidUntil >= sub.expireOn) {
             return now < sub.expireOn
                 ? Status.CANCELED
-                : Status.EXPIRED;
+                : sub.depositAmount > 0
+                    ? Status.EXPIRED
+                    : Status.ARCHIVED;
         } else if (sub.paidUntil <= now) {
             return Status.CHARGEABLE;
         } else {
@@ -300,13 +300,27 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         }
     }
 
+    function forceArchiveSubscription(uint subId) public {
+        Subscription storage sub = subscriptions[subId];
+        assert (_currentStatus(sub) == Status.CANCELED);
+        assert (sub.transferTo == msg.sender); //only provider is allowed to force expire a canceled sub.
+        assert (_isNotOffer(sub));
+        var _to = sub.transferTo;
+        sub.expireOn = now;
+        _returnSubscriptionDespoit(sub);
+    }
+
     function claimSubscriptionDeposit(uint subId) public {
-        uint depositAmount;
         Subscription storage sub = subscriptions[subId];
         assert (_currentStatus(sub) == Status.EXPIRED);
         assert (sub.transferFrom == msg.sender);
-        assert ((depositAmount = sub.depositAmount) > 0);
+        assert (sub.depositAmount > 0);
         assert (_isNotOffer(sub));
+        _returnSubscriptionDespoit(sub);
+    }
+
+    function _returnSubscriptionDespoit(Subscription storage sub) internal {
+        uint depositAmount = sub.depositAmount;
         sub.depositAmount = 0;
         _mintFromDeposit(msg.sender, depositAmount);
     }

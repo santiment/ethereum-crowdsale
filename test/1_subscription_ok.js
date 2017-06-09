@@ -20,8 +20,8 @@ const web3UtilApi = require('web3/lib/utils/utils.js');
 const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(blockNumber||web3.eth.blockNumber).timestamp;
-const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4, EXPIRED:5}
-const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'CANCELED', 5:'EXPIRED'}
+const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4, EXPIRED:5, ARCHIVED:6}
+const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'CANCELED', 5:'EXPIRED', 6:'ARCHIVED'}
 const SECONDS_IN_HOUR = 60*60;
 
 contract('snt', function(accounts){
@@ -253,7 +253,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 return snt.paybackSubscriptionDeposit(subId) //method under test
                 .then(tx => assertSubscription(s0, i+':Check: deposit is paid back', (s1)=>({
                     balanceFrom   : s0.balanceFrom.plus(s0.depositAmount),
-                    depositAmount : 0
+                    depositAmount : 0,
+                    status : SUB_STATUS.ARCHIVED
                 })));
             });
        });
