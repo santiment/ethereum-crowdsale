@@ -17,9 +17,8 @@ import "./ERC20.sol";
 //
 //   === ToDos
 //  0 - check Cancel/Hold/Unhold Offer functionality
-//  2- sanity checks like startOn<expireOn
+//  2- sanity checks like startOn<expireOn, 
 //  4 - possibility for Provider set Subscription expired right now.
-//  5 - cancel subscription by admin
 //
 //Ask:
 // Given: subscription one year:
