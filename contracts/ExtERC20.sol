@@ -16,6 +16,7 @@ import "./ERC20.sol";
 // 6 - check: all _paymentData
 //
 //   === ToDos
+//  0 - check Cancel/Hold/Unhold Offer functionality
 //  2- sanity checks like startOn<expireOn
 //  4 - possibility for Provider set Subscription expired right now.
 //  5 - cancel subscription by admin
@@ -283,7 +284,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function cancelSubscription(uint subId, uint gasReserve) public valid(subId) {
         Subscription storage sub = subscriptions[subId];
-        assert (sub.transferFrom == msg.sender); //only subscription owner is allowed to cancel it
+        assert (sub.transferFrom == msg.sender || admin == msg.sender); //only subscription owner or admin is allowed to cancel it
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
         if (msg.sender != _to) {
