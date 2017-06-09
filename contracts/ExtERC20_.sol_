@@ -95,7 +95,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         beneficiary = newBeneficiary;
     }
 
-    function subscriptionDetails(uint subId) public constant valid(subId) returns(
+    function subscriptionDetails(uint subId) public constant returns(
         address transferFrom,
         address transferTo,
         uint pricePerHour,
@@ -107,7 +107,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return (sub.transferFrom, sub.transferTo, sub.pricePerHour, sub.chargePeriod, sub.startOn, sub.descriptor);
     }
 
-    function subscriptionStatus(uint subId) public constant valid(subId) returns(
+    function subscriptionStatus(uint subId) public constant returns(
         uint depositAmount,
         uint expireOn,
         uint execCounter,
@@ -144,7 +144,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
           else { return false; }
     }
 
-    function executeSubscription(uint subId) public valid(subId) returns (bool) {
+    function executeSubscription(uint subId) valid(subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
         assert (!_isOffer(sub));
         if (_currentStatus(sub)==Status.CHARGEABLE) {
@@ -163,9 +163,8 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         else { return false; }
     }
 
-    function postponeDueDate(uint subId, uint newDueDate) public valid(subId) returns (bool success){
+    function postponeDueDate(uint subId, uint newDueDate) valid(subId) public returns (bool success){
         Subscription storage sub = subscriptions[subId];
-        assert (!_isOffer(sub));
         assert (sub.transferTo == msg.sender); //only Service Provider is allowed to postpone the DueDate
         if (sub.paidUntil >= newDueDate) { return false; }
         else {
@@ -206,14 +205,14 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return _value * PLATFORM_FEE_PER_10000 / 10000;
     }
 
-    function currentStatus(uint subId) public constant valid(subId) returns(Status status) {
+    function currentStatus(uint subId) valid(subId) public constant returns(Status status) {
         return _currentStatus(subscriptions[subId]);
     }
 
     function _currentStatus(Subscription storage sub) internal constant returns(Status status) {
         if (sub.onHoldSince>0) {
             return Status.ON_HOLD;
-        } else if (sub.transferFrom==0) {
+        } else if (_isOffer(sub)) {
             return Status.OFFER;
         } else if (sub.paidUntil >= sub.expireOn) {
             return now < sub.expireOn
@@ -227,6 +226,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor) public returns (uint subId) {
+        //simple sanity checks
         assert (_startOn < _expireOn);
         subscriptions[++subscriptionCounter] = Subscription ({
             transferFrom    : 0,
@@ -246,11 +246,12 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return subscriptionCounter;
     }
 
-    function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public valid(_offerId) returns (uint newSubId) {
+    function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
+        //simple sanity checks
         assert (_startOn < _expireOn);
-        assert (subscriptionCounter >= _offerId);
+        assert (subscriptionCounter >= _offerId)
         Subscription storage offer = subscriptions[_offerId];
-        assert(_isOffer(offer));
+        assert( _isOffer(offer) );     //it is an offer, not a subscription.
         assert(offer.startOn == 0     || offer.startOn <= now);
         assert(offer.expireOn == 0    || offer.expireOn > now);
         assert(offer.execCounter == 0 || offer.execCounter-- > 0);
@@ -271,11 +272,11 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return (subscriptionCounter = newSubId);
     }
 
-    function cancelSubscription(uint subId) public valid(subId) {
+    function cancelSubscription(uint subId) public {
         return cancelSubscription(subId, 0);
     }
 
-    function cancelSubscription(uint subId, uint gasReserve) public valid(subId) {
+    function cancelSubscription(uint subId, uint gasReserve) public {
         Subscription storage sub = subscriptions[subId];
         assert (sub.transferFrom == msg.sender); //only subscription owner is allowed to cancel it
         var _to = sub.transferTo;
@@ -287,7 +288,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         }
     }
 
-    function claimSubscriptionDeposit(uint subId) public valid(subId) {
+    function claimSubscriptionDeposit(uint subId) public {
         uint depositAmount;
         assert (currentStatus(subId) == Status.EXPIRED);
         assert (subscriptions[subId].transferFrom == msg.sender);
@@ -297,9 +298,8 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     // a service can allow/disallow a hold/unhold request
-    function holdSubscription (uint subId) public valid(subId) returns (bool success) {
+    function holdSubscription (uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
-        assert (!_isOffer(sub));
         if (sub.onHoldSince > 0) { return true; }
         var _to = sub.transferTo;
         if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, true)) {
