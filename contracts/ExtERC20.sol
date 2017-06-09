@@ -17,7 +17,7 @@ import "./ERC20.sol";
 //
 //   === ToDos
 //  0 - check Cancel/Hold/Unhold Offer functionality
-//  2- sanity checks like startOn<expireOn, 
+//  2- sanity checks like startOn<expireOn,
 //  4 - possibility for Provider set Subscription expired right now.
 //
 //Ask:
@@ -68,7 +68,9 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
 
 contract ExtERC20Impl is ExtERC20, ERC20Impl {
     address public beneficiary;
-    address public admin;  //admin should be a multisig contract implementing advanced sign/recovery strategies
+    address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
+    address public nextAdmin; //used in two step schema for admin change.
+
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
     uint public totalOnDeposit;
     uint public totalInCirculation;
@@ -86,8 +88,13 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         PLATFORM_FEE_PER_10000 = newFee;
     }
 
-    function setAdmin(address newAdmin) public only(admin) {
-        admin = newAdmin;
+    function prepareAdminChange(address newAdmin) public only(admin) {
+        nextAdmin = newAdmin;
+    }
+
+    function confirmAdminChange() public only(nextAdmin) {
+        admin = nextAdmin;
+        delete nextAdmin;
     }
 
     function setBeneficiary(address newBeneficiary) public only(admin) {
