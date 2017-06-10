@@ -20,10 +20,10 @@ contract CrowdsaleMinter is Base {
     address public constant OWNER = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
     address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
 
-    uint public constant PRIORITY_SALE_CAP_ETH = 1000;
-    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 4000;
-    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 12000;
-    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1;
+    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
+    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
+    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
+    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1000;
     uint public constant TOTAL_TOKEN_AMOUNT = 54000000;
 
     /* ====== configuration END ====== */
@@ -31,19 +31,19 @@ contract CrowdsaleMinter is Base {
     string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
     enum State { BEFORE_START, COMMUNITY_SALE, PRIORITY_SALE, PRIORITY_SALE_FINISHED, PUBLIC_SALE, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
 
-    uint public total_received_amount;
-    mapping (address => uint) public balances;
-
-    uint private constant PRIORITY_SALE_CAP = PRIORITY_SALE_CAP_ETH * 1 ether;
+    uint private constant COMMUNITY_PLUS_PRIORITY_SALE_CAP = COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH * 1 ether;
     uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MAX_TOTAL_AMOUNT_TO_RECEIVE = MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MIN_ACCEPTED_AMOUNT = MIN_ACCEPTED_AMOUNT_FINNEY * 1 finney;
-    bool public isAborted = false;
 
-    mapping(address => uint) community_amount_available;
+    bool public isAborted = false;
+    uint public total_received_amount;
+    mapping (address => uint) public balances;
+    mapping (address => uint) community_amount_available;
 
     //constructor
     function CrowdsaleMinter() validSetupOnly() {
+        //ToDo: extract to external contract
         community_amount_available[0x00000001] = 1 ether;
         community_amount_available[0x00000002] = 2 ether;
         //...
@@ -60,10 +60,11 @@ contract CrowdsaleMinter is Base {
     {
         State state = currentState();
         if (state == State.COMMUNITY_SALE) {
+            //ToDo: assert msg.sender here
             receiveCommunityFunds();
         } else if (state == State.PRIORITY_SALE) {
             assert (AddressList(PRIORITY_ADDRESS_LIST).contains(msg.sender));
-            receiveFundsUpTo(PRIORITY_SALE_CAP);
+            receiveFundsUpTo(COMMUNITY_PLUS_PRIORITY_SALE_CAP);
         } else if (state == State.PUBLIC_SALE) {
             receiveFundsUpTo(MAX_TOTAL_AMOUNT_TO_RECEIVE);
         } else if (state == State.REFUND_RUNNING) {
@@ -172,7 +173,7 @@ contract CrowdsaleMinter is Base {
         } else if (block.number < PRIORITY_SALE_START) {
             return State.COMMUNITY_SALE;
         } else if (block.number < PUBLIC_SALE_START) {
-            return total_received_amount < PRIORITY_SALE_CAP
+            return total_received_amount < COMMUNITY_PLUS_PRIORITY_SALE_CAP
                 ? State.PRIORITY_SALE
                 : State.PRIORITY_SALE_FINISHED;
         } else if (block.number <= PUBLIC_SALE_END && total_received_amount < MAX_TOTAL_AMOUNT_TO_RECEIVE) {
@@ -205,6 +206,7 @@ contract CrowdsaleMinter is Base {
     //fails if something in setup is looking weird
     modifier validSetupOnly() {
         if (TOTAL_TOKEN_AMOUNT == 0
+            || MIN_ACCEPTED_AMOUNT_FINNEY < 1
             || OWNER == 0x0
             || PRIORITY_ADDRESS_LIST == 0x0
             || COMMUNITY_SALE_START == 0
@@ -212,15 +214,15 @@ contract CrowdsaleMinter is Base {
             || PUBLIC_SALE_START == 0
             || PUBLIC_SALE_END == 0
             || WITHDRAWAL_END == 0
+            || MIN_TOTAL_AMOUNT_TO_RECEIVE == 0
+            || MAX_TOTAL_AMOUNT_TO_RECEIVE == 0
+            || COMMUNITY_PLUS_PRIORITY_SALE_CAP == 0
             || COMMUNITY_SALE_START <= block.number
             || COMMUNITY_SALE_START >= PRIORITY_SALE_START
             || PRIORITY_SALE_START >= PUBLIC_SALE_START
             || PUBLIC_SALE_START >= PUBLIC_SALE_END
-            || PUBLIC_SALE_END   >= WITHDRAWAL_END
-            || MIN_TOTAL_AMOUNT_TO_RECEIVE == 0
-            || MAX_TOTAL_AMOUNT_TO_RECEIVE == 0
-            || PRIORITY_SALE_CAP == 0
-            || PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
+            || PUBLIC_SALE_END >= WITHDRAWAL_END
+            || COMMUNITY_PLUS_PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
             || MIN_TOTAL_AMOUNT_TO_RECEIVE > MAX_TOTAL_AMOUNT_TO_RECEIVE )
                 throw;
         _;
