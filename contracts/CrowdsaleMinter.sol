@@ -2,34 +2,25 @@ pragma solidity ^0.4.8;
 
 import "./ERC20.sol";
 
-//Desicion made.
-// 1 - Provider is solely responsible to consider failed sub charge as an error and stop the service,
-//    therefore there is no separate error state or counter for that in this Token Contract.
-//
-// 2 - Any call originated from the user (tx.origin==msg.sender) should throw an exception on error,
-//     but it should return "false" on error if called from other contract (tx.origin!=msg.sender).
-//     Reason: thrown exception are easier to see in wallets, returned boolean values are easier to evaluate in the code of the calling contract.
-//
-//ToDo:
-// 4 - check: all functions for access modifiers: _from, _to, _others
-// 5 - check: all function for re-entrancy
-// 6 - check: all _paymentData
-
-//Ask:
-// Given: subscription one year:
+contract AddressList {
+    function contains(address addr) public returns (bool);
+}
 
 contract CrowdsaleMinter is Base {
 
-    string public constant VERSION = "0.1.0";
+    string public constant VERSION = "0.2.0";
 
     /* ====== configuration START ====== */
-    uint public constant PRIORITY_SALE_START = 3172723; /* approx. 12.02.2017 23:50 */
-    uint public constant MAIN_SALE_START     = 3172723; /* approx. 12.02.2017 23:50 */
-    uint public constant CROWDSALE_END       = 3302366; /* approx. 06.03.2017 00:00 */
-    uint public constant WITHDRAWAL_END      = 3678823; /* approx. 06.05.2017 00:00 */
+    uint public constant COMMUNITY_SALE_START = 0; /* approx. 30.07.2017 00:00 */
+    uint public constant PRIORITY_SALE_START  = 0; /* approx. 30.07.2017 00:00 */
+    uint public constant PUBLIC_SALE_START    = 0; /* approx. 30.07.2017 00:00 */
+    uint public constant PUBLIC_SALE_END      = 0; /* approx. 30.07.2017 00:00 */
+    uint public constant WITHDRAWAL_END       = 0; /* approx. 30.07.2017 00:00 */
 
     address public constant OWNER = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
+    address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
 
+    uint public constant PRIORITY_SALE_CAP_ETH = 1000;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 4000;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 12000;
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1;
@@ -37,30 +28,27 @@ contract CrowdsaleMinter is Base {
 
     /* ====== configuration END ====== */
 
-    string[] private stateNames = ["BEFORE_START",  "PRIORITY_SALE", "MAIN_SALE", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
-    enum State { BEFORE_START,  PRIORITY_SALE, MAIN_SALE, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
+    string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
+    enum State { BEFORE_START, COMMUNITY_SALE, PRIORITY_SALE, PRIORITY_SALE_FINISHED, PUBLIC_SALE, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
 
     uint public total_received_amount;
     mapping (address => uint) public balances;
 
+    uint private constant PRIORITY_SALE_CAP = PRIORITY_SALE_CAP_ETH * 1 ether;
     uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MAX_TOTAL_AMOUNT_TO_RECEIVE = MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MIN_ACCEPTED_AMOUNT = MIN_ACCEPTED_AMOUNT_FINNEY * 1 finney;
     bool public isAborted = false;
 
-    mapping(address => uint) priority_amount_available;
+    mapping(address => uint) community_amount_available;
 
     //constructor
-    function CrowdsaleMinter ()
-        // validSetupOnly() 
-        {
-        priority_amount_available[0x00000001] = 1 ether;
-        priority_amount_available[0x00000002] = 2 ether;
+    function CrowdsaleMinter() validSetupOnly() {
+        community_amount_available[0x00000001] = 1 ether;
+        community_amount_available[0x00000002] = 2 ether;
+        //...
     }
 
-    function getTotalTokenAmount() returns (uint totalTokenAmount){
-        return TOTAL_TOKEN_AMOUNT;
-    }
     //
     // ======= interface methods =======
     //
@@ -71,10 +59,13 @@ contract CrowdsaleMinter is Base {
     noReentrancy
     {
         State state = currentState();
-        if (state == State.PRIORITY_SALE) {
-            receivePriorityFunds();
-        } else if (state == State.MAIN_SALE) {
-            receiveFunds();
+        if (state == State.COMMUNITY_SALE) {
+            receiveCommunityFunds();
+        } else if (state == State.PRIORITY_SALE) {
+            assert (AddressList(PRIORITY_ADDRESS_LIST).contains(msg.sender));
+            receiveFundsUpTo(PRIORITY_SALE_CAP);
+        } else if (state == State.PUBLIC_SALE) {
+            receiveFundsUpTo(MAX_TOTAL_AMOUNT_TO_RECEIVE);
         } else if (state == State.REFUND_RUNNING) {
             // any entring call in Refund Phase will cause full refund
             sendRefund();
@@ -128,16 +119,16 @@ contract CrowdsaleMinter is Base {
         if (!msg.sender.send(amount_to_refund)) throw;
     }
 
-    function receivePriorityFunds()
+    function receiveCommunityFunds()
     private
     notTooSmallAmountOnly {
       // no overflow is possible here: nobody have soo much money to spend.
-      var allowed_amount = priority_amount_available[msg.sender];
+      var allowed_amount = community_amount_available[msg.sender];
       assert (allowed_amount > 0);
 
       if (allowed_amount < msg.value) {
           // accept allowed amount only and return change
-          delete priority_amount_available[msg.sender];
+          delete community_amount_available[msg.sender];
           var change_to_return = msg.value - allowed_amount;
           if (!msg.sender.send(change_to_return)) throw;
 
@@ -147,27 +138,27 @@ contract CrowdsaleMinter is Base {
           // accept full amount
           balances[msg.sender] += msg.value;
           total_received_amount += msg.value;
-          priority_amount_available[msg.sender] -= msg.value;
+          community_amount_available[msg.sender] -= msg.value;
       }
     }
 
-    function receiveFunds()
+    function receiveFundsUpTo(uint max_amount_to_receive)
     private
     notTooSmallAmountOnly {
-      // no overflow is possible here: nobody have soo much money to spend.
-      if (total_received_amount + msg.value > MAX_TOTAL_AMOUNT_TO_RECEIVE) {
-          // accept amount only and return change
-          var change_to_return = total_received_amount + msg.value - MAX_TOTAL_AMOUNT_TO_RECEIVE;
-          if (!msg.sender.send(change_to_return)) throw;
+        // no overflow is possible here: nobody have soo much money to spend.
+        if (total_received_amount + msg.value > max_amount_to_receive) {
+            // accept amount only and return change
+            var change_to_return = total_received_amount + msg.value - max_amount_to_receive;
+            if (!msg.sender.send(change_to_return)) throw;
 
-          var acceptable_remainder = MAX_TOTAL_AMOUNT_TO_RECEIVE - total_received_amount;
-          balances[msg.sender] += acceptable_remainder;
-          total_received_amount += acceptable_remainder;
-      } else {
-          // accept full amount
-          balances[msg.sender] += msg.value;
-          total_received_amount += msg.value;
-      }
+            var acceptable_remainder = max_amount_to_receive - total_received_amount;
+            balances[msg.sender] += acceptable_remainder;
+            total_received_amount += acceptable_remainder;
+        } else {
+            // accept full amount
+            balances[msg.sender] += msg.value;
+            total_received_amount += msg.value;
+        }
     }
 
 
@@ -176,12 +167,16 @@ contract CrowdsaleMinter is Base {
             return this.balance > 0
                    ? State.REFUND_RUNNING
                    : State.CLOSED;
+        } else if (block.number < COMMUNITY_SALE_START) {
+             return State.BEFORE_START;
         } else if (block.number < PRIORITY_SALE_START) {
-            return State.BEFORE_START;
-        } else if (block.number <= MAIN_SALE_START && total_received_amount < MAX_TOTAL_AMOUNT_TO_RECEIVE) {
-            return State.PRIORITY_SALE;
-        } else if (block.number <= CROWDSALE_END && total_received_amount < MAX_TOTAL_AMOUNT_TO_RECEIVE) {
-            return State.MAIN_SALE;
+            return State.COMMUNITY_SALE;
+        } else if (block.number < PUBLIC_SALE_START) {
+            return total_received_amount < PRIORITY_SALE_CAP
+                ? State.PRIORITY_SALE
+                : State.PRIORITY_SALE_FINISHED;
+        } else if (block.number <= PUBLIC_SALE_END && total_received_amount < MAX_TOTAL_AMOUNT_TO_RECEIVE) {
+            return State.PUBLIC_SALE;
         } else if (this.balance == 0) {
             return State.CLOSED;
         } else if (block.number <= WITHDRAWAL_END && total_received_amount >= MIN_TOTAL_AMOUNT_TO_RECEIVE) {
@@ -209,15 +204,23 @@ contract CrowdsaleMinter is Base {
 
     //fails if something in setup is looking weird
     modifier validSetupOnly() {
-        if ( OWNER == 0x0
+        if (TOTAL_TOKEN_AMOUNT == 0
+            || OWNER == 0x0
+            || PRIORITY_ADDRESS_LIST == 0x0
+            || COMMUNITY_SALE_START == 0
             || PRIORITY_SALE_START == 0
-            || MAIN_SALE_START == 0
-            || CROWDSALE_END == 0
-            || WITHDRAWAL_END ==0
-            || PRIORITY_SALE_START <= block.number
-            || PRIORITY_SALE_START >= MAIN_SALE_START
-            || MAIN_SALE_START >= CROWDSALE_END
-            || CROWDSALE_END   >= WITHDRAWAL_END
+            || PUBLIC_SALE_START == 0
+            || PUBLIC_SALE_END == 0
+            || WITHDRAWAL_END == 0
+            || COMMUNITY_SALE_START <= block.number
+            || COMMUNITY_SALE_START >= PRIORITY_SALE_START
+            || PRIORITY_SALE_START >= PUBLIC_SALE_START
+            || PUBLIC_SALE_START >= PUBLIC_SALE_END
+            || PUBLIC_SALE_END   >= WITHDRAWAL_END
+            || MIN_TOTAL_AMOUNT_TO_RECEIVE == 0
+            || MAX_TOTAL_AMOUNT_TO_RECEIVE == 0
+            || PRIORITY_SALE_CAP == 0
+            || PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
             || MIN_TOTAL_AMOUNT_TO_RECEIVE > MAX_TOTAL_AMOUNT_TO_RECEIVE )
                 throw;
         _;
