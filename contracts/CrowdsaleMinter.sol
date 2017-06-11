@@ -1,12 +1,10 @@
 pragma solidity ^0.4.8;
 
-import "./ERC20.sol";
-
 contract AddressList {
     function contains(address addr) public returns (bool);
 }
 
-contract CrowdsaleMinter is Base {
+contract CrowdsaleMinter {
 
     string public constant VERSION = "0.2.0";
 
