@@ -62,14 +62,18 @@ contract CrowdsaleMinter {
     noReentrancy
     {
         State state = currentState();
+        uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
-            //ToDo: assert msg.sender here
-            receiveCommunityFunds();
+            amount_allowed = community_amount_available[msg.sender];
+            var amount_accepted = receiveFundsUpTo(amount_allowed);
+            community_amount_available[msg.sender] -= amount_accepted;
         } else if (state == State.PRIORITY_SALE) {
             assert (AddressList(PRIORITY_ADDRESS_LIST).contains(msg.sender));
-            receiveFundsUpTo(COMMUNITY_PLUS_PRIORITY_SALE_CAP);
+            amount_allowed = COMMUNITY_PLUS_PRIORITY_SALE_CAP - total_received_amount;
+            receiveFundsUpTo(amount_allowed);
         } else if (state == State.PUBLIC_SALE) {
-            receiveFundsUpTo(MAX_TOTAL_AMOUNT_TO_RECEIVE);
+            amount_allowed = MAX_TOTAL_AMOUNT_TO_RECEIVE - total_received_amount;
+            receiveFundsUpTo(amount_allowed);
         } else if (state == State.REFUND_RUNNING) {
             // any entring call in Refund Phase will cause full refund
             sendRefund();
@@ -123,50 +127,29 @@ contract CrowdsaleMinter {
         if (!msg.sender.send(amount_to_refund)) throw;
     }
 
-    function receiveCommunityFunds()
+
+    function receiveFundsUpTo(uint amount)
     private
-    notTooSmallAmountOnly {
-      // no overflow is possible here: nobody have soo much money to spend.
-      var allowed_amount = community_amount_available[msg.sender];
-      assert (allowed_amount > 0);
-
-      if (allowed_amount < msg.value) {
-          // accept allowed amount only and return change
-          delete community_amount_available[msg.sender];
-          var change_to_return = msg.value - allowed_amount;
-          if (!msg.sender.send(change_to_return)) throw;
-
-          balances[msg.sender] += allowed_amount;
-          total_received_amount += allowed_amount;
-      } else {
-          // accept full amount
-          balances[msg.sender] += msg.value;
-          total_received_amount += msg.value;
-          community_amount_available[msg.sender] -= msg.value;
-      }
-    }
-
-    function _mint(uint amount, address account) private {
-        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
-    }
-
-    function receiveFundsUpTo(uint max_amount_to_receive)
-    private
-    notTooSmallAmountOnly {
-        // no overflow is possible here: nobody have soo much money to spend.
-        if (total_received_amount + msg.value > max_amount_to_receive) {
+    notTooSmallAmountOnly
+    returns (uint amount_received) {
+        assert (amount > 0);
+        if (msg.value > amount) {
             // accept amount only and return change
-            var change_to_return = total_received_amount + msg.value - max_amount_to_receive;
+            var change_to_return = msg.value - amount;
             if (!msg.sender.send(change_to_return)) throw;
-
-            var acceptable_remainder = max_amount_to_receive - total_received_amount;
-            balances[msg.sender] += acceptable_remainder;
-            total_received_amount += acceptable_remainder;
         } else {
             // accept full amount
-            balances[msg.sender] += msg.value;
-            total_received_amount += msg.value;
+            amount = msg.value;
         }
+        balances[msg.sender] += amount;
+        total_received_amount += amount;
+        mint(amount,msg.sender);
+        amount_received = amount;
+    }
+
+
+    function mint(uint amount, address account) private {
+        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
 
