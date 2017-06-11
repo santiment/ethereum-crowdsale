@@ -19,7 +19,8 @@ contract CrowdsaleMinter {
     uint public constant PUBLIC_SALE_END      = 0; /* approx. 30.07.2017 00:00 */
     uint public constant WITHDRAWAL_END       = 0; /* approx. 30.07.2017 00:00 */
 
-    address public constant OWNER = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
+    address public          OWNER = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
+    address public constant ADMIN = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
     address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
     address public constant TOKEN = 0x00000000000000000000000000;
 
@@ -41,8 +42,10 @@ contract CrowdsaleMinter {
 
     bool public isAborted = false;
     uint public total_received_amount;
+    address public proposedOwner; //two phase owner change
     mapping (address => uint) public balances;
     mapping (address => uint) community_amount_available;
+    address[] public investors;
 
     //constructor
     function CrowdsaleMinter() validSetupOnly() {
@@ -61,6 +64,15 @@ contract CrowdsaleMinter {
     payable
     noReentrancy
     {
+        //special treatment for change owner confirmation (two-phase owner change commit)
+        if (msg.sender == proposedOwner) {
+            if (!proposedOwner.send(msg.value)) throw;
+            OWNER = msg.sender;
+            proposedOwner = 0x0;
+            return;
+        }
+
+        //crowdsale state machine
         State state = currentState();
         uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
@@ -82,6 +94,7 @@ contract CrowdsaleMinter {
         }
     }
 
+
     function refund() external
     inState(State.REFUND_RUNNING)
     noReentrancy
@@ -101,9 +114,13 @@ contract CrowdsaleMinter {
 
     function abort() external
     inStateBefore(State.REFUND_RUNNING)
-    onlyOwner
+    onlyAdmin
     {
         isAborted = true;
+    }
+
+    function proposeNewOwner(address newOwner) onlyOwner {
+        proposedOwner = newOwner;
     }
 
     //displays current contract state in human readable form
@@ -141,12 +158,14 @@ contract CrowdsaleMinter {
             // accept full amount
             amount = msg.value;
         }
+        if (balances[msg.sender] == 0) investors.push(msg.sender);
         balances[msg.sender] += amount;
         total_received_amount += amount;
         mint(amount,msg.sender);
         amount_received = amount;
     }
 
+    function investorsCount() constant returns(uint) { return investors.length; }
 
     function mint(uint amount, address account) private {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
@@ -220,12 +239,17 @@ contract CrowdsaleMinter {
     }
 
 
+    //accepts calls from Admin only
+    modifier onlyAdmin(){
+        if (msg.sender != ADMIN)  throw;
+        _;
+    }
+
     //accepts calls from owner only
     modifier onlyOwner(){
         if (msg.sender != OWNER)  throw;
         _;
     }
-
 
     //accepts calls from token holders only
     modifier tokenHoldersOnly(){
