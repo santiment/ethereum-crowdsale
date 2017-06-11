@@ -4,6 +4,10 @@ contract AddressList {
     function contains(address addr) public returns (bool);
 }
 
+contract MintableToken {
+    function mint(uint amount, address account);
+}
+
 contract CrowdsaleMinter {
 
     string public constant VERSION = "0.2.0";
@@ -17,12 +21,13 @@ contract CrowdsaleMinter {
 
     address public constant OWNER = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
     address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
+    address public constant TOKEN = 0x00000000000000000000000000;
 
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1000;
-    uint public constant TOTAL_TOKEN_AMOUNT = 54000000;
+    uint public constant TOKEN_PER_ETH = 1000;
 
     /* ====== configuration END ====== */
 
@@ -141,6 +146,10 @@ contract CrowdsaleMinter {
       }
     }
 
+    function _mint(uint amount, address account) private {
+        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
+    }
+
     function receiveFundsUpTo(uint max_amount_to_receive)
     private
     notTooSmallAmountOnly {
@@ -203,7 +212,8 @@ contract CrowdsaleMinter {
 
     //fails if something in setup is looking weird
     modifier validSetupOnly() {
-        if (TOTAL_TOKEN_AMOUNT == 0
+        if (
+            TOKEN_PER_ETH == 0
             || MIN_ACCEPTED_AMOUNT_FINNEY < 1
             || OWNER == 0x0
             || PRIORITY_ADDRESS_LIST == 0x0
