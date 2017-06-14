@@ -5,6 +5,11 @@ contract BalanceStore {
     function balanceOf(address _owner) constant returns (uint256 balance);
 }
 
+contract MintableToken {
+    function mint(uint amount, address account);
+    function start();
+}
+
 contract Base {
 
     modifier only(address allowed) {
@@ -18,7 +23,7 @@ contract Base {
     }
 
     /**
-     * validate manupulated arguments in msg.data
+     * validate possibly manupulated arguments in msg.data
      *
      * http://vessenes.com/the-erc20-short-address-attack-explained/
      */

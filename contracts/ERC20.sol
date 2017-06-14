@@ -20,7 +20,7 @@ contract ERC20 {
 
 contract ERC20Impl is ERC20, Base {
 
-    function transfer(address _to, uint256 _value) validMsgDataLen(20+32) returns (bool success) {
+    function transfer(address _to, uint256 _value) isRunningOnly validMsgDataLen(20+32) returns (bool success) {
         if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
             balances[msg.sender] -= _value;
             balances[_to] += _value;
@@ -29,7 +29,7 @@ contract ERC20Impl is ERC20, Base {
         } else { return false; }
     }
 
-    function transferFrom(address _from, address _to, uint256 _value) validMsgDataLen(20+20+32) returns (bool success) {
+    function transferFrom(address _from, address _to, uint256 _value) isRunningOnly validMsgDataLen(20+20+32) returns (bool success) {
         if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
             balances[_to] += _value;
             balances[_from] -= _value;
@@ -43,7 +43,7 @@ contract ERC20Impl is ERC20, Base {
         return balances[_owner];
     }
 
-    function approve(address _spender, uint256 _value) validMsgDataLen(20+32) returns (bool success) {
+    function approve(address _spender, uint256 _value) isRunningOnly validMsgDataLen(20+32) returns (bool success) {
         allowed[msg.sender][_spender] = _value;
         Approval(msg.sender, _spender, _value);
         return true;
@@ -57,9 +57,20 @@ contract ERC20Impl is ERC20, Base {
     mapping (address => mapping (address => uint256)) allowed;
 
     uint256 public totalSupply;
+    bool    public isRunning = false;
 
     modifier onlyHolder(address holder) {
         if (balanceOf(holder) == 0) throw;
+        _;
+    }
+
+    modifier isRunningOnly() {
+        if (!isRunning) throw;
+        _;
+    }
+
+    modifier isNotRunningOnly() {
+        if (isRunning) throw;
         _;
     }
 

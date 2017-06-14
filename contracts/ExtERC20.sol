@@ -149,7 +149,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
           else { return false; }
     }
 
-    function executeSubscription(uint subId) public returns (bool) {
+    function executeSubscription(uint subId) isRunningOnly public returns (bool) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
         assert (msg.sender == sub.transferFrom || msg.sender == sub.transferTo || msg.sender == admin);
@@ -307,7 +307,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         assert (_currentStatus(sub) == Status.CANCELED);
         assert (sub.transferTo == msg.sender); //only provider is allowed to force expire a canceled sub.
         assert (_isNotOffer(sub));
-        var _to = sub.transferTo;
         sub.expireOn = now;
         _returnSubscriptionDespoit(sub);
     }

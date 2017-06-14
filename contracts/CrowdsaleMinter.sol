@@ -1,11 +1,16 @@
 pragma solidity ^0.4.8;
 
+contract BalanceStorage {
+    function balances(address account) public returns(uint balance);
+}
+
 contract AddressList {
     function contains(address addr) public returns (bool);
 }
 
 contract MintableToken {
     function mint(uint amount, address account);
+    function start();
 }
 
 contract CrowdsaleMinter {
@@ -19,16 +24,28 @@ contract CrowdsaleMinter {
     uint public constant PUBLIC_SALE_END      = 0; /* approx. 30.07.2017 00:00 */
     uint public constant WITHDRAWAL_END       = 0; /* approx. 30.07.2017 00:00 */
 
-    address public          OWNER = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
+    address public constant OWNER = 0x00000000000000000000000000;
     address public constant ADMIN = 0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA;
     address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
-    address public constant TOKEN = 0x00000000000000000000000000;
+
+    address public constant PLATFORM_REWARDS_WALLET = 0x00000000000000000000000000;
+    address public constant TEAM_GROUP_WALLET = 0x00000000000000000000000000;
+    address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;
+
+    uint public constant PLATFORM_REWARDS_PER_CENT = 1;
+    uint public constant TEAM_BONUS_PER_CENT = 18;
+    uint public constant ADVISORS_AND_FRIENDS_PER_CENT = 10;
+
+    address public          TOKEN = 0x00000000000000000000000000;
+    address public constant PRESALE_BALANCES = 0x00000000000000000000000000;
+    address public constant PRESALE_BONUS_POLL = 0x00000000000000000000000000;
 
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1000;
     uint public constant TOKEN_PER_ETH = 1000;
+    uint public constant PRE_SALE_BONUS_PER_CENT = 54;
 
     /* ====== configuration END ====== */
 
@@ -46,6 +63,7 @@ contract CrowdsaleMinter {
     mapping (address => uint) public balances;
     mapping (address => uint) community_amount_available;
     address[] public investors;
+    bool public allBonusesAreMinted = false;
 
     //constructor
     function CrowdsaleMinter() validSetupOnly() {
@@ -64,15 +82,6 @@ contract CrowdsaleMinter {
     payable
     noReentrancy
     {
-        //special treatment for change owner confirmation (two-phase owner change commit)
-        if (msg.sender == proposedOwner) {
-            if (!proposedOwner.send(msg.value)) throw;
-            OWNER = msg.sender;
-            proposedOwner = 0x0;
-            return;
-        }
-
-        //crowdsale state machine
         State state = currentState();
         uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
@@ -112,15 +121,46 @@ contract CrowdsaleMinter {
         if (!OWNER.send(this.balance)) throw;
     }
 
+    function mintAllBonuses()
+    inState(State.WITHDRAWAL_RUNNING)
+    onlyAdmin
+    noReentrancy
+    external
+    {
+        assert(!allBonusesAreMinted);
+        allBonusesAreMinted = true;
+
+
+        //mint group bonuses
+        mint(PLATFORM_REWARDS_PER_CENT, PLATFORM_REWARDS_WALLET);
+        mint(TEAM_BONUS_PER_CENT, TEAM_GROUP_WALLET);
+        mint(ADVISORS_AND_FRIENDS_PER_CENT, ADVISERS_AND_FRIENDS_WALLET);
+
+        //mint presale bonuses
+        for(uint i=0; i< PRESALE_ADDRESSES.length; ++i ) {
+            var addr = PRESALE_ADDRESSES[i];
+            var presale_balance = BalanceStorage(PRESALE_BALANCES).balances(addr);
+            if (presale_balance > 0) {
+                var presale_voting_percent = BalanceStorage(PRESALE_BONUS_POLL).balances(addr);
+                var amount_to_mint = presale_balance * (100 + presale_voting_percent) / 100;
+                mint(amount_to_mint, addr);
+            }
+        }
+    }
+
+    function attachToToken(address tokenAddr)
+    inStateBefore(State.BEFORE_START)
+    onlyAdmin
+    external
+    {
+        TOKEN = tokenAddr;
+    }
+
     function abort() external
     inStateBefore(State.REFUND_RUNNING)
     onlyAdmin
     {
         isAborted = true;
-    }
-
-    function proposeNewOwner(address newOwner) onlyOwner {
-        proposedOwner = newOwner;
     }
 
     //displays current contract state in human readable form
@@ -143,7 +183,6 @@ contract CrowdsaleMinter {
         // send refund back to sender
         if (!msg.sender.send(amount_to_refund)) throw;
     }
-
 
     function receiveFundsUpTo(uint amount)
     private
@@ -171,13 +210,12 @@ contract CrowdsaleMinter {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
-
     function currentState() private constant returns (State) {
         if (isAborted) {
             return this.balance > 0
                    ? State.REFUND_RUNNING
                    : State.CLOSED;
-        } else if (block.number < COMMUNITY_SALE_START) {
+        } else if (block.number < COMMUNITY_SALE_START || TOKEN == 0x0) {
              return State.BEFORE_START;
         } else if (block.number < PRIORITY_SALE_START) {
             return State.COMMUNITY_SALE;
@@ -219,6 +257,8 @@ contract CrowdsaleMinter {
             || MIN_ACCEPTED_AMOUNT_FINNEY < 1
             || OWNER == 0x0
             || PRIORITY_ADDRESS_LIST == 0x0
+            || PRESALE_BALANCES == 0x0
+            || PRESALE_BONUS_POLL == 0x0
             || COMMUNITY_SALE_START == 0
             || PRIORITY_SALE_START == 0
             || PUBLIC_SALE_START == 0
@@ -273,5 +313,91 @@ contract CrowdsaleMinter {
         _;
         locked = false;
     }
+
+    address[] PRESALE_ADDRESSES = [
+        0xF55DFd2B02Cf3282680C94BD01E9Da044044E6A2,
+        0x0D40B53828948b340673674Ae65Ee7f5D8488e33,
+        0x0ea690d466d6bbd18F124E204EA486a4Bf934cbA,
+        0x6d25B9f40b92CcF158250625A152574603465192,
+        0x481Da0F1e89c206712BCeA4f7D6E60d7b42f6C6C,
+        0x416EDa5D6Ed29CAc3e6D97C102d61BC578C5dB87,
+        0xD78Ac6FFc90E084F5fD563563Cc9fD33eE303f18,
+        0xe6714ab523acEcf9b85d880492A2AcDBe4184892,
+        0x285A9cA5fE9ee854457016a7a5d3A3BB95538093,
+        0x600ca6372f312B081205B2C3dA72517a603a15Cc,
+        0x2b8d5C9209fBD500Fd817D960830AC6718b88112,
+
+        0x4B15Dd23E5f9062e4FB3a9B7DECF653C0215e560,
+        0xD67449e6AB23c1f46dea77d3f5E5D47Ff33Dc9a9,
+        0xd0ADaD7ed81AfDa039969566Ceb8423E0ab14d90,
+        0x245f27796a44d7E3D30654eD62850ff09EE85656,
+        0x639D6eC2cef4d6f7130b40132B3B6F5b667e5105,
+        0x5e9a69B8656914965d69d8da49c3709F0bF2B5Ef,
+        0x0832c3B801319b62aB1D3535615d1fe9aFc3397A,
+        0xf6Dd631279377205818C3a6725EeEFB9D0F6b9F3,
+        0x47696054e71e4c3f899119601a255a7065C3087B,
+        0xf107bE6c6833f61A24c64D63c8A7fcD784Abff06,
+        0x056f072Bd2240315b708DBCbDDE80d400f0394a1,
+        0x9e5BaeC244D8cCD49477037E28ed70584EeAD956,
+        0x40A0b2c1B4E30F27e21DF94e734671856b485966,
+        0x84f0620A547a4D14A7987770c4F5C25d488d6335,
+        0x036Ac11c161C09d94cA39F7B24C1bC82046c332B,
+        0x2912A18C902dE6f95321D6d6305D7B80Eec4C055,
+        0xE1Ad30971b83c17E2A24c0334CB45f808AbEBc87,
+        0x07f35b7FE735c49FD5051D5a0C2e74c9177fEa6d,
+        0x11669Cce6AF3ce1Ef3777721fCC0eef0eE57Eaba,
+        0xBDbaF6434d40D6355B1e80e40Cc4AB9C68D96116,
+        0x17125b59ac51cEe029E4bD78D7f5947D1eA49BB2,
+        0xA382A3A65c3F8ee2b726A2535B3c34A89D9094D4,
+        0xAB78c8781fB64Bed37B274C5EE759eE33465f1f3,
+        0xE74F2062612E3cAE8a93E24b2f0D3a2133373884,
+        0x505120957A9806827F8F111A123561E82C40bC78,
+        0x00a46922b1c54ae6b5818c49b97e03eb4bb352e1,
+        0xE76fE52a251C8F3a5dcD657E47A6C8D16Fdf4bFA
+    ];
+
+/*
+    address[] PRESALE_ADDRESSES = [
+        0xf55dfd2b02cf3282680c94bd01e9da044044e6a2,
+        0x0d40b53828948b340673674ae65ee7f5d8488e33,
+        0x0ea690d466d6bbd18f124e204ea486a4bf934cba,
+        0x6d25b9f40b92ccf158250625a152574603465192,
+        0x481da0f1e89c206712bcea4f7d6e60d7b42f6c6c,
+        0x416eda5d6ed29cac3e6d97c102d61bc578c5db87,
+        0xd78ac6ffc90e084f5fd563563cc9fd33ee303f18,
+        0xe6714ab523acecf9b85d880492a2acdbe4184892,
+        0x285a9ca5fe9ee854457016a7a5d3a3bb95538093,
+        0x600ca6372f312b081205b2c3da72517a603a15cc,
+        0x2b8d5c9209fbd500fd817d960830ac6718b88112,
+        0x4b15dd23e5f9062e4fb3a9b7decf653c0215e560,
+        0xd67449e6ab23c1f46dea77d3f5e5d47ff33dc9a9,
+        0xd0adad7ed81afda039969566ceb8423e0ab14d90,
+        0x245f27796a44d7e3d30654ed62850ff09ee85656,
+        0x639d6ec2cef4d6f7130b40132b3b6f5b667e5105,
+        0x5e9a69b8656914965d69d8da49c3709f0bf2b5ef,
+        0x0832c3b801319b62ab1d3535615d1fe9afc3397a,
+        0xf6dd631279377205818c3a6725eeefb9d0f6b9f3,
+        0x47696054e71e4c3f899119601a255a7065c3087b,
+        0xf107be6c6833f61a24c64d63c8a7fcd784abff06,
+        0x056f072bd2240315b708dbcbdde80d400f0394a1,
+        0x9e5baec244d8ccd49477037e28ed70584eead956,
+        0x40a0b2c1b4e30f27e21df94e734671856b485966,
+        0x84f0620a547a4d14a7987770c4f5c25d488d6335,
+        0x036ac11c161c09d94ca39f7b24c1bc82046c332b,
+        0x2912a18c902de6f95321d6d6305d7b80eec4c055,
+        0xe1ad30971b83c17e2a24c0334cb45f808abebc87,
+        0x07f35b7fe735c49fd5051d5a0c2e74c9177fea6d,
+        0x11669cce6af3ce1ef3777721fcc0eef0ee57eaba,
+        0xbdbaf6434d40d6355b1e80e40cc4ab9c68d96116,
+        0x17125b59ac51cee029e4bd78d7f5947d1ea49bb2,
+        0xa382a3a65c3f8ee2b726a2535b3c34a89d9094d4,
+        0xab78c8781fb64bed37b274c5ee759ee33465f1f3,
+        0xe74f2062612e3cae8a93e24b2f0d3a2133373884,
+        0x505120957a9806827f8f111a123561e82c40bc78,
+        0x00a46922b1c54ae6b5818c49b97e03eb4bb352e1,
+        0xe76fe52a251c8f3a5dcd657e47a6c8d16fdf4bfa
+
+  ];
+*/
 
 }// CrowdsaleMinter
