@@ -132,9 +132,9 @@ contract CrowdsaleMinter {
 
 
         //mint group bonuses
-        mint(PLATFORM_REWARDS_PER_CENT, PLATFORM_REWARDS_WALLET);
-        mint(TEAM_BONUS_PER_CENT, TEAM_GROUP_WALLET);
-        mint(ADVISORS_AND_FRIENDS_PER_CENT, ADVISERS_AND_FRIENDS_WALLET);
+        mint(total_received_amount * PLATFORM_REWARDS_PER_CENT, PLATFORM_REWARDS_WALLET);
+        mint(total_received_amount * TEAM_BONUS_PER_CENT, TEAM_GROUP_WALLET);
+        mint(total_received_amount * ADVISORS_AND_FRIENDS_PER_CENT, ADVISERS_AND_FRIENDS_WALLET);
 
         //mint presale bonuses
         for(uint i=0; i< PRESALE_ADDRESSES.length; ++i ) {
