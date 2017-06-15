@@ -55,8 +55,8 @@ contract CrowdsaleMinter {
 
     /* ====== configuration END ====== */
 
-    string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
-    enum State { BEFORE_START, COMMUNITY_SALE, PRIORITY_SALE, PRIORITY_SALE_FINISHED, PUBLIC_SALE, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
+    string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "BONUS_MINTING", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
+    enum State { BEFORE_START, COMMUNITY_SALE, PRIORITY_SALE, PRIORITY_SALE_FINISHED, PUBLIC_SALE, BONUS_MINTING, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
 
     uint private constant COMMUNITY_PLUS_PRIORITY_SALE_CAP = COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH * 1 ether;
     uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
@@ -68,9 +68,7 @@ contract CrowdsaleMinter {
     mapping (address => uint) public balances;
     mapping (address => uint) public community_amount_available;
     address[] public investors;
-    bool public allBonusesAreMinted = false;
-
-    address public proposedOwner; //two phase owner change
+    bool private allBonusesAreMinted = false;
 
     //constructor
     function CrowdsaleMinter() validSetupOnly() {
@@ -128,11 +126,10 @@ contract CrowdsaleMinter {
         if (!OWNER.send(this.balance)) throw;
     }
 
-
-    //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits in one Tx.
+    //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
     function mintAllBonuses()
-    inState(State.WITHDRAWAL_RUNNING)
-    onlyAdmin
+    inState(State.BONUS_MINTING)
+    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be pulic because bonus holder should call it.
     noReentrancy
     external
     {
@@ -140,9 +137,9 @@ contract CrowdsaleMinter {
         allBonusesAreMinted = true;
 
         //mint group bonuses
-        _mint(total_received_amount * PLATFORM_REWARDS_PER_CENT, PLATFORM_REWARDS_WALLET);
-        _mint(total_received_amount * TEAM_BONUS_PER_CENT, TEAM_GROUP_WALLET);
-        _mint(total_received_amount * ADVISORS_AND_FRIENDS_PER_CENT, ADVISERS_AND_FRIENDS_WALLET);
+        _mint(total_received_amount * PLATFORM_REWARDS_PER_CENT / 100, PLATFORM_REWARDS_WALLET);
+        _mint(total_received_amount * TEAM_BONUS_PER_CENT / 100, TEAM_GROUP_WALLET);
+        _mint(total_received_amount * ADVISORS_AND_FRIENDS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
 
         //mint presale bonuses
         for(uint i=0; i < PRESALE_ADDRESSES.length; ++i) {
@@ -150,14 +147,14 @@ contract CrowdsaleMinter {
             uint presale_balance = PRESALE_BALANCES.balances(addr);
             if (presale_balance > 0) {
                 var presale_voting_percent = PRESALE_BONUS_POLL.balances(addr);
-                var amount_to_mint = presale_balance * (100 + presale_voting_percent) / 100;
-                _mint(amount_to_mint, addr);
+                var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * presale_voting_percent / 100 / 100;
+                _mint(presale_balance + presale_bonus, addr);
             }
         }
     }
 
     function attachToToken(MintableToken tokenAddr)
-    inStateBefore(State.BEFORE_START)
+    inState(State.BEFORE_START)
     onlyAdmin
     external
     {
@@ -196,8 +193,8 @@ contract CrowdsaleMinter {
     function _receiveFundsUpTo(uint amount)
     private
     notTooSmallAmountOnly
-    returns (uint amount_received) {
-        assert (amount > 0);
+    returns (uint) {
+        require (amount > 0);
         if (msg.value > amount) {
             // accept amount only and return change
             var change_to_return = msg.value - amount;
@@ -210,11 +207,11 @@ contract CrowdsaleMinter {
         balances[msg.sender] += amount;
         total_received_amount += amount;
         _mint(amount,msg.sender);
-        amount_received = amount;
+        return amount;
     }
 
     function _mint(uint amount, address account) private {
-        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
+        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account); //ToDo: naming is confuxion. amoint is wei and exchange ratio is token to eth ?
     }
 
     function currentState() private constant returns (State) {
@@ -235,7 +232,9 @@ contract CrowdsaleMinter {
         } else if (this.balance == 0) {
             return State.CLOSED;
         } else if (block.number <= WITHDRAWAL_END && total_received_amount >= MIN_TOTAL_AMOUNT_TO_RECEIVE) {
-            return State.WITHDRAWAL_RUNNING;
+            return allBonusesAreMinted
+                ? State.WITHDRAWAL_RUNNING
+                : State.BONUS_MINTING;
         } else {
             return State.REFUND_RUNNING;
         }
