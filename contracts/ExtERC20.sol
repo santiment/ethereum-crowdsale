@@ -41,6 +41,8 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
     function claimDeposit(uint depositId);
     function registerXRateProvider(XRateProvider addr) public returns (uint16 xrateProviderId);
+    function enableServiceProvider(PaymentListener addr) external;
+    function disableServiceProvider(PaymentListener addr) external;
 
     function subscriptionDetails(uint subId) public constant returns(
         address transferFrom,
@@ -100,7 +102,15 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         beneficiary = newBeneficiary;
     }
 
-    function subscriptionDetails(uint subId) public constant returns(
+    function enableServiceProvider(PaymentListener addr) external only(admin) {
+        providerRegistry[addr] = true;
+    }
+
+    function disableServiceProvider(PaymentListener addr) external only(admin) {
+        delete providerRegistry[addr];
+    }
+
+    function subscriptionDetails(uint subId) public constant returns (
         address transferFrom,
         address transferTo,
         uint pricePerHour,
@@ -234,7 +244,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         }
     }
 
-    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor) public returns (uint subId) {
+    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor)
+    public
+    onlyRegisteredProvider
+    returns (uint subId) {
         assert (_startOn < _expireOn);
         assert (_chargePeriod <= 10 years);
         subscriptions[++subscriptionCounter] = Subscription ({
@@ -425,6 +438,12 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return sub.transferTo != 0;   //existing subscription or offer has always transferTo set.
     }
 
+    modifier onlyRegisteredProvider(){
+        if (!providerRegistry[msg.sender]) throw;
+        _;
+    }
+
+    mapping (address=>bool) public providerRegistry;
     mapping (uint => Subscription) public subscriptions;
     mapping (uint => Deposit) public deposits;
     XRateProvider[] public xrateProviders;

@@ -8,7 +8,8 @@ contract TestableSNT is SNT {
         for(uint i=0; i<accounts.length; ++i) {
             __setBalance(accounts[i], amounts[i]);
         }
-        isRunning = true; 
+        isRunning = true;
+        admin = msg.sender;
     }
 
     function __setBalance(address beneficiary, uint amount) {

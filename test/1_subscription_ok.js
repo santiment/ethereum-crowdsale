@@ -59,7 +59,10 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 snt = _instance;
                 return TestableProvider
                     .new(snt.address,PROVIDER_OWNER, {from:CREATOR})
-                    .then(_instance => {myProvider=_instance})
+                    .then(_instance => {
+                        myProvider=_instance;
+                        return snt.enableServiceProvider(_instance.address,{from:PLATFORM_OWNER})
+                    })
             });
         });
     });
