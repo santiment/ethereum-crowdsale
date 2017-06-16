@@ -35,16 +35,16 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
     function executeSubscription(uint subId) returns (bool success);
     function postponeDueDate(uint subId, uint newDueDate) returns (bool success);
     function currentStatus(uint subId) constant returns(Status status);
-    function forceArchiveSubscription(uint subId) public;
+    function forceArchiveSubscription(uint subId) external;
 
     function paybackSubscriptionDeposit(uint subId);
     function createDeposit(uint _value, bytes _descriptor) returns (uint subId);
     function claimDeposit(uint depositId);
-    function registerXRateProvider(XRateProvider addr) public returns (uint16 xrateProviderId);
+    function registerXRateProvider(XRateProvider addr) external returns (uint16 xrateProviderId);
     function enableServiceProvider(PaymentListener addr) external;
     function disableServiceProvider(PaymentListener addr) external;
 
-    function subscriptionDetails(uint subId) public constant returns(
+    function subscriptionDetails(uint subId) external constant returns(
         address transferFrom,
         address transferTo,
         uint pricePerHour,
@@ -53,7 +53,7 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
         bytes descriptor
     );
 
-    function subscriptionStatus(uint subId) public constant returns(
+    function subscriptionStatus(uint subId) external constant returns(
         uint depositAmount,
         uint expireOn,
         uint execCounter,
@@ -70,7 +70,7 @@ contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
 contract ExtERC20Impl is ExtERC20, ERC20Impl {
     address public beneficiary;
     address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
-    address public nextAdmin; //used in two step schema for admin change.
+    address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before becomes admin.
 
     uint PLATFORM_FEE_PER_10000 = 1; //0,01%
     uint public totalOnDeposit;
@@ -84,21 +84,21 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     function getRate() returns(uint)   { return 1;       }
     function getCode() returns(string) { return name();  }
 
-    function setPlatformFeePer10000(uint newFee) public only(admin) {
-        assert (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
+    function setPlatformFeePer10000(uint newFee) external only(admin) {
+        require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
         PLATFORM_FEE_PER_10000 = newFee;
     }
 
-    function prepareAdminChange(address newAdmin) public only(admin) {
+    function prepareAdminChange(address newAdmin) external only(admin) {
         nextAdmin = newAdmin;
     }
 
-    function confirmAdminChange() public only(nextAdmin) {
+    function confirmAdminChange() external only(nextAdmin) {
         admin = nextAdmin;
         delete nextAdmin;
     }
 
-    function setBeneficiary(address newBeneficiary) public only(admin) {
+    function setBeneficiary(address newBeneficiary) external only(admin) {
         beneficiary = newBeneficiary;
     }
 
@@ -110,7 +110,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         delete providerRegistry[addr];
     }
 
-    function subscriptionDetails(uint subId) public constant returns (
+    function subscriptionDetails(uint subId) external constant returns (
         address transferFrom,
         address transferTo,
         uint pricePerHour,
@@ -122,7 +122,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return (sub.transferFrom, sub.transferTo, sub.pricePerHour, sub.chargePeriod, sub.startOn, sub.descriptor);
     }
 
-    function subscriptionStatus(uint subId) public constant returns(
+    function subscriptionStatus(uint subId) external constant returns(
         uint depositAmount,
         uint expireOn,
         uint execCounter,
@@ -133,13 +133,13 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         return (sub.depositAmount, sub.expireOn, sub.execCounter, sub.paidUntil, sub.onHoldSince);
     }
 
-    function registerXRateProvider(XRateProvider addr) public only(admin) returns (uint16 xrateProviderId) {
+    function registerXRateProvider(XRateProvider addr) external only(admin) returns (uint16 xrateProviderId) {
         xrateProviderId = uint16(xrateProviders.length);
         xrateProviders.push(addr);
         NewXRateProvider(addr, xrateProviderId);
     }
 
-    function getXRateProviderLength() public constant returns (uint) { return xrateProviders.length; }
+    function getXRateProviderLength() external constant returns (uint) { return xrateProviders.length; }
 
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
         if (_fulfillPayment(msg.sender, _to, _value, 0)) {
@@ -311,11 +311,13 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         if (msg.sender != _to) {
             //supress handler throwing error; reserve enough gas to finish the call
             //don't evaluate .call's return value because it is an event handler (fired and forgot)
-            _to.call.gas(msg.gas-max(gasReserve,1000))(bytes4(sha3("onSubCanceled(uint)")), subId);
+            if (_to.call.gas(msg.gas-max(gasReserve,1000))(bytes4(sha3("onSubCanceled(uint)")), subId)){
+                //do nothing. it is notification only.
+            }
         }
     }
 
-    function forceArchiveSubscription(uint subId) public {
+    function forceArchiveSubscription(uint subId) external {
         Subscription storage sub = subscriptions[subId];
         assert (_currentStatus(sub) == Status.CANCELED);
         assert (sub.transferTo == msg.sender); //only provider is allowed to force expire a canceled sub.
