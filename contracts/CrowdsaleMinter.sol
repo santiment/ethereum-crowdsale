@@ -53,6 +53,14 @@ contract CrowdsaleMinter {
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
 
+    //constructor
+    function CrowdsaleMinter() validSetupOnly() {
+        //ToDo: extract to external contract
+        community_amount_available[0x00000001] = 1 ether;
+        community_amount_available[0x00000002] = 2 ether;
+        //...
+    }
+
     /* ====== configuration END ====== */
 
     string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "BONUS_MINTING", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
@@ -69,14 +77,6 @@ contract CrowdsaleMinter {
     mapping (address => uint) public community_amount_available;
     address[] public investors;
     bool private allBonusesAreMinted = false;
-
-    //constructor
-    function CrowdsaleMinter() validSetupOnly() {
-        //ToDo: extract to external contract
-        community_amount_available[0x00000001] = 1 ether;
-        community_amount_available[0x00000002] = 2 ether;
-        //...
-    }
 
     //
     // ======= interface methods =======
@@ -119,19 +119,18 @@ contract CrowdsaleMinter {
 
     function withdrawFunds() external
     inState(State.WITHDRAWAL_RUNNING)
-    onlyOwner
     noReentrancy
+    onlyOwner
     {
         // transfer funds to owner
         if (!OWNER.send(this.balance)) throw;
     }
 
     //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
-    function mintAllBonuses()
+    function mintAllBonuses() external
     inState(State.BONUS_MINTING)
-    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be pulic because bonus holder should call it.
     noReentrancy
-    external
+    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be pulic because bonus holder should call it.
     {
         assert(!allBonusesAreMinted);
         allBonusesAreMinted = true;
@@ -153,10 +152,9 @@ contract CrowdsaleMinter {
         }
     }
 
-    function attachToToken(MintableToken tokenAddr)
+    function attachToToken(MintableToken tokenAddr) external
     inState(State.BEFORE_START)
     onlyAdmin
-    external
     {
         TOKEN = tokenAddr;
     }
@@ -169,7 +167,7 @@ contract CrowdsaleMinter {
     }
 
     //displays current contract state in human readable form
-    function state()  external constant
+    function state() external constant
     returns (string)
     {
         return stateNames[ uint(currentState()) ];
@@ -181,7 +179,9 @@ contract CrowdsaleMinter {
     // ======= implementation methods =======
     //
 
-    function _sendRefund() private tokenHoldersOnly {
+    function _sendRefund() private
+    tokenHoldersOnly
+    {
         // load balance to refund plus amount currently sent
         var amount_to_refund = balances[msg.sender] + msg.value;
         // reset balance
@@ -190,8 +190,7 @@ contract CrowdsaleMinter {
         if (!msg.sender.send(amount_to_refund)) throw;
     }
 
-    function _receiveFundsUpTo(uint amount)
-    private
+    function _receiveFundsUpTo(uint amount) private
     notTooSmallAmountOnly
     returns (uint) {
         require (amount > 0);
@@ -214,7 +213,9 @@ contract CrowdsaleMinter {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account); //ToDo: naming is confuxion. amoint is wei and exchange ratio is token to eth ?
     }
 
-    function currentState() private constant returns (State) {
+    function currentState() private constant
+    returns (State)
+    {
         if (isAborted) {
             return this.balance > 0
                    ? State.REFUND_RUNNING
