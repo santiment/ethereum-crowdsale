@@ -49,7 +49,7 @@ contract CrowdsaleMinter {
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
-    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1000;
+    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
 
