@@ -100,6 +100,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const abi_NewSubscription = SNT.abi.find(e => e.name==='NewSubscription');
     const abi_Payment = SNT.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
+    const abi_SubCanceled = TestableProvider.abi.find(e => e.name==='SubCanceled');
+
 
     [
         { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
@@ -242,7 +244,11 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 status : SUB_STATUS.PAID
             })).then(s0 => {
                 return snt.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
-                .then(tx => assertSubscription(s0, i+':Check: after sub canceled', (s1)=>({
+                .then(tx => assertLogEvent(tx, abi_SubCanceled, i+': Check: cancel event', (e) =>({
+                    subId      : subId,
+                    caller     : s0.transferFrom,
+                 })))
+                .then(e => assertSubscription(s0, i+':Check: after sub canceled', (s1)=>({
                     expireOn : s1.paidUntil,
                     status : SUB_STATUS.CANCELED
                 })));

@@ -17,6 +17,7 @@ import "./ERC20.sol";
 // 7 - check Cancel/Hold/Unhold Offer functionality
 //ToDo later:
 // 0 - embed force archive subscription into sub cancellation.
+//     (Currently difficult/impossible because low level call is missing return value)
 //
 //Ask:
 // Given: subscription one year:
@@ -309,10 +310,10 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
         if (msg.sender != _to) {
-            //supress handler throwing error; reserve enough gas to finish the call
-            //don't evaluate .call's return value because it is an event handler (fired and forgot)
-            if (_to.call.gas(msg.gas-max(gasReserve,1000))(bytes4(sha3("onSubCanceled(uint)")), subId)){
+            //supress re-throwing of exceptions; reserve enough gas to finish this function
+            if (_to.call.gas(msg.gas-max(gasReserve,10000))(bytes4(sha3("onSubCanceled(uint256,address)")), subId, msg.sender)){
                 //do nothing. it is notification only.
+                //Later: is it possible to evaluate return value here? We need to in order to
             }
         }
     }
