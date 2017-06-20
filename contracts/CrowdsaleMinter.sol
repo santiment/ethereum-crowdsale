@@ -36,12 +36,10 @@ contract CrowdsaleMinter {
 
     address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
 
-    address public constant PLATFORM_REWARDS_WALLET     = 0x00000000000000000000000000;
     address public constant TEAM_GROUP_WALLET           = 0x00000000000000000000000000;
     address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;
 
     //ToDo: check the numbers
-    uint public constant PLATFORM_REWARDS_PER_CENT     = 1;
     uint public constant TEAM_BONUS_PER_CENT           = 18;
     uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
@@ -162,7 +160,6 @@ contract CrowdsaleMinter {
         allBonusesAreMinted = true;
 
         //mint group bonuses
-        _mint(total_received_amount * PLATFORM_REWARDS_PER_CENT / 100, PLATFORM_REWARDS_WALLET);
         _mint(total_received_amount * TEAM_BONUS_PER_CENT / 100, TEAM_GROUP_WALLET);
         _mint(total_received_amount * ADVISORS_AND_PARTNERS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
 
