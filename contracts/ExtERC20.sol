@@ -2,7 +2,7 @@ pragma solidity ^0.4.8;
 
 import "./ERC20.sol";
 
-//Desicion made.
+//Decision made.
 // 1 - Provider is solely responsible to consider failed sub charge as an error and stop the service,
 //    therefore there is no separate error state or counter for that in this Token Contract.
 //
@@ -208,7 +208,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
             balances[_from] -= _value;
             balances[_to] += _value - fee;
             balances[beneficiary] += fee;
-            Payment(_from, _to, _value, fee, msg.sender,PaymentStatus.OK, subId);
+            Payment(_from, _to, _value, fee, msg.sender, PaymentStatus.OK, subId);
             return true;
         } else {
             Payment(_from, _to, _value, fee, msg.sender, PaymentStatus.BALANCE_ERROR, subId);
@@ -378,8 +378,8 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         assert (currentStatus(subId) == Status.EXPIRED);
         var depositAmount = sub.depositAmount;
         assert (depositAmount > 0);
-        balances[sub.transferFrom] += depositAmount;
         sub.depositAmount = 0;
+        _mintFromDeposit(sub.transferFrom, depositAmount);
     }
 
     function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
