@@ -73,7 +73,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
     address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before becomes admin.
 
-    uint PLATFORM_FEE_PER_10000 = 1; //0,01%
+    uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
     uint public totalOnDeposit;
     uint public totalInCirculation;
 
