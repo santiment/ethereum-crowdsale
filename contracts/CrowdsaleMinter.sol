@@ -39,11 +39,9 @@ contract CrowdsaleMinter {
     address public constant TEAM_GROUP_WALLET           = 0x00000000000000000000000000;
     address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;
 
-    //ToDo: check the numbers
     uint public constant TEAM_BONUS_PER_CENT           = 18;
     uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
-    //ToDo: ASK: can't be constant. why?
     MintableToken      public TOKEN                = MintableToken(0x00000000000000000000000000);
     BalanceStorage     public PRESALE_BALANCES     = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
     PresaleBonusVoting public PRESALE_BONUS_VOTING = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
@@ -232,7 +230,7 @@ contract CrowdsaleMinter {
     }
 
     function _mint(uint amount, address account) private {
-        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account); //ToDo: naming is confuxion. amoint is wei and exchange ratio is token to eth ?
+        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
     function currentState() private constant
