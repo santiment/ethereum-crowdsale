@@ -1,10 +1,10 @@
 pragma solidity ^0.4.8;
 
-import "./SNT.sol";
+import "./SAN.sol";
 
-contract TestableSNT is SNT {
+contract TestableSAN is SAN {
 
-    function TestableSNT(address[] accounts, uint[] amounts) {
+    function TestableSAN(address[] accounts, uint[] amounts) {
         for(uint i=0; i<accounts.length; ++i) {
             __setBalance(accounts[i], amounts[i]);
         }

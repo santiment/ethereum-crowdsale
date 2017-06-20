@@ -12,8 +12,8 @@ chai.use(require('chai-bignumber')());
 const assert = require('chai').assert;
 
 const Promise = require('bluebird');
-const TestableSNT = artifacts.require('TestableSNT');
-const SNT = artifacts.require('SNT');
+const TestableSAN = artifacts.require('TestableSAN');
+const SAN = artifacts.require('SAN');
 const TestableProvider = artifacts.require('TestableProvider');
 
 const web3UtilApi = require('web3/lib/utils/utils.js');
@@ -24,17 +24,17 @@ const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4, EXPIRE
 const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'CANCELED', 5:'EXPIRED', 6:'ARCHIVED'}
 const SECONDS_IN_HOUR = 60*60;
 
-contract('snt', function(accounts){
-    var snt;
+contract('san', function(accounts){
+    var san;
     var myProvider;
     const CREATOR = accounts[0];
     const USER_01 = accounts[1];
     const USER_02 = accounts[2];
     const PROVIDER_OWNER = accounts[5];
     const PLATFORM_OWNER = accounts[6];
-    const $nt = amount => web3.toWei(amount,'finney')
+    const $an = amount => web3.toWei(amount,'finney')
     const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER, PLATFORM_OWNER];
-    const ALL_BALANCES  = [$nt(200),  $nt(200),     $nt(200),           0];
+    const ALL_BALANCES  = [$an(200),  $an(200),     $an(200),           0];
     var PLATFORM_FEE_PER_10000=1;
 
 //============ extract into separate module ================
@@ -54,14 +54,14 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     before(function(){
         return evm_snapshot().then(() => {
-            return TestableSNT.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:4200000})
+            return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:4200000})
             .then( _instance =>{
-                snt = _instance;
+                san = _instance;
                 return TestableProvider
-                    .new(snt.address,PROVIDER_OWNER, {from:CREATOR})
+                    .new(san.address,PROVIDER_OWNER, {from:CREATOR})
                     .then(_instance => {
                         myProvider=_instance;
-                        return snt.enableServiceProvider(_instance.address,{from:PLATFORM_OWNER})
+                        return san.enableServiceProvider(_instance.address,{from:PLATFORM_OWNER})
                     })
             });
         });
@@ -69,9 +69,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     after(()=>evm_revert)
 
-    it('snt should be correctly initialized', function() {
+    it('san should be correctly initialized', function() {
         return Promise.all(
-            ALL_ACCOUNTS.map(account=>snt.balanceOf(account))
+            ALL_ACCOUNTS.map(account=>san.balanceOf(account))
         ).then(bn_balances => {
             var act_balances = bn_balances.map(e=>e.toString());
             var exp_balances = ALL_BALANCES.map(e=>e.toString());
@@ -81,33 +81,33 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     it('TestableProvider should be correctly initialized', function() {
         return Promise.join(
-            myProvider.snt(),
+            myProvider.san(),
             myProvider.owner(),
-            (_snt, _owner) => {
-                assert.equal(snt.address, _snt, 'snt token address mismatch');
+            (_san, _owner) => {
+                assert.equal(san.address, _san, 'san token address mismatch');
                 assert.equal(PROVIDER_OWNER, _owner, 'owner address mismatch');
             }
         );
     });
 
     //abi: func calls
-    const abi_Subscription = SNT.abi.find(e => e.name==='subscriptions').outputs;
-    const abi_Deposit = SNT.abi.find(e => e.name==='deposits').outputs;
+    const abi_Subscription = SAN.abi.find(e => e.name==='subscriptions').outputs;
+    const abi_Deposit = SAN.abi.find(e => e.name==='deposits').outputs;
 
     //abi: Events
-    const abi_NewDeposit = SNT.abi.find(e => e.name==='NewDeposit');
-    const abi_DepositClosed = SNT.abi.find(e => e.name==='DepositClosed');
-    const abi_NewSubscription = SNT.abi.find(e => e.name==='NewSubscription');
-    const abi_Payment = SNT.abi.find(e => e.name==='Payment');
+    const abi_NewDeposit = SAN.abi.find(e => e.name==='NewDeposit');
+    const abi_DepositClosed = SAN.abi.find(e => e.name==='DepositClosed');
+    const abi_NewSubscription = SAN.abi.find(e => e.name==='NewSubscription');
+    const abi_Payment = SAN.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
     const abi_SubCanceled = TestableProvider.abi.find(e => e.name==='SubCanceled');
 
 
     [
-        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:$nt(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$nt(10), startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         let offerId = i+1;
         it('should create a valid offer #'+i, function() {
@@ -155,13 +155,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             var user_balance0;
             now = ethNow();
             return Promise.all([
-                snt.balanceOf(user),
+                san.balanceOf(user),
                 assertSubscription(offerId,'Check: offer before accept',(s)=>({
                     subId: offerId,
                     transferFrom: 0
                 })),
             ]).then(([user_balance0, s0]) => {
-                return snt.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
+                return san.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
                 .then(tx => assertLogEvent(tx, abi_NewSubscription, 'Check: NewSubscription', (e) => ({
                     subId: s0.subscriptionCounter.plus(1),
                     customer : user,
@@ -214,7 +214,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             }).then(s0 => {
                 if (user === __FROM)    user = s0.transferFrom;
                 else if (user === __TO) user = s0.transferTo;
-                return snt.executeSubscription(subId, {from:user}) //method under test
+                return san.executeSubscription(subId, {from:user}) //method under test
                     .then(tx => assertLogEvent(tx, abi_Payment, i+': Check: payment event', (e) =>({
                         returnCode : 0,
                         subId      : subId,
@@ -243,7 +243,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return assertSubscription(subId, i+':Check: PreCondition', (s0)=>({
                 status : SUB_STATUS.PAID
             })).then(s0 => {
-                return snt.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
+                return san.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
                 .then(tx => assertLogEvent(tx, abi_SubCanceled, i+': Check: cancel event', (e) =>({
                     subId      : subId,
                     caller     : s0.transferFrom,
@@ -259,7 +259,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     status : SUB_STATUS.EXPIRED
                 })));
             }).then(s0 => {
-                return snt.paybackSubscriptionDeposit(subId) //method under test
+                return san.paybackSubscriptionDeposit(subId) //method under test
                 .then(tx => assertSubscription(s0, i+':Check: deposit is paid back', (s1)=>({
                     balanceFrom   : s0.balanceFrom.plus(s0.depositAmount),
                     depositAmount : 0,
@@ -273,8 +273,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     [[USER_01, 112, web3.toHex("deposit 1")]]
     .forEach(([user, amount, info],i)=>{
         it('create / claim deposite',function(){
-            return snt.balanceOf(user).then(user_balance0 => {
-                return snt.createDeposit(amount, info, {from:USER_01})
+            return san.balanceOf(user).then(user_balance0 => {
+                return san.createDeposit(amount, info, {from:USER_01})
                     .then(tx => assertLogEvent(tx,abi_NewDeposit,i+'Check: event NewDeposit created', (evnt)=> ({
                         depositId : assert.ok(new BigNumber(evnt.depositId).isBigNumber),
                         value : amount,
@@ -287,13 +287,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         descriptor  : info,
                         balanceFrom : user_balance0.minus(s1.value)
                     })))
-                    .then(s1 => snt.claimDeposit(s1.depositId,{from:USER_01}))
+                    .then(s1 => san.claimDeposit(s1.depositId,{from:USER_01}))
                     .then(tx => assertLogEvent(tx,abi_DepositClosed,i+'Check: event DepositClosed created', (evnt)=> ({
                         depositId : evnt.depositId
                     })))
                     .then(evnt => Promise.all([
-                        snt.deposits(evnt.depositId),
-                        snt.balanceOf(user)
+                        san.deposits(evnt.depositId),
+                        san.balanceOf(user)
                     ]))
                     .then(([deposit,user_balance1]) => {
                         assert.isNotOk(deposit.depositId,'deposit should not exist after claim');
@@ -312,7 +312,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             .then(()=> assertSubscription(prevState, 'wait before hold', (s0)=> ({
                 status: SUB_STATUS.CHARGEABLE
             }))))
-        .then(prevState => snt.holdSubscription(subId, {from:user})
+        .then(prevState => san.holdSubscription(subId, {from:user})
             .then(tx=> assertSubscription(prevState, 'just after hold', (s0)=> ({
                 status: SUB_STATUS.ON_HOLD,
                 onHoldSince: ethNow(tx.receipt.blockNumber)
@@ -321,7 +321,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             .then(()=> assertSubscription(prevState, 'wait after hold', (s0)=> ({
                 status: SUB_STATUS.ON_HOLD
             }))))
-        .then(prevState => snt.unholdSubscription(subId, {from:user})
+        .then(prevState => san.unholdSubscription(subId, {from:user})
             .then(tx=> assertSubscription(prevState, 'just after unhold', (s0)=> ({
                 status     : SUB_STATUS.EXPIRED,
                 onHoldSince: 0,
@@ -338,9 +338,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         return assertSubscription(subId, 'Check: PreCondition', (s0)=>({
             status: SUB_STATUS.CHARGEABLE
         }))
-        .then(s0 => snt.executeSubscription(subId, {from:user})
+        .then(s0 => san.executeSubscription(subId, {from:user})
             .then(tx => collectPaymentData(subId))
-            .then(s0 => snt.holdSubscription(subId, {from:user})
+            .then(s0 => san.holdSubscription(subId, {from:user})
                 .then(tx=> assertSubscription(s0, 'just after hold', (s1)=>({
                     status: SUB_STATUS.ON_HOLD,
                     onHoldSince: ethNow(tx.receipt.blockNumber)
@@ -349,7 +349,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 .then(() => assertSubscription(s0, 'wait after hold', (s1)=>({
                     status: SUB_STATUS.ON_HOLD
                 }))))
-            .then(s0 => snt.unholdSubscription(subId, {from:user})
+            .then(s0 => san.unholdSubscription(subId, {from:user})
                 .then(tx=> assertSubscription(s0, 'just after unhold', (s1)=>{console.log(ethNow(), s0, s1); return ({
                     status     : SUB_STATUS.CANCELED,
                     onHoldSince: 0,
@@ -366,12 +366,12 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function assertDeposit(depositId, assertMsg, assertFunc){
       let D = new Map();
       return Promise.all([
-          snt.deposits(depositId),
-          snt.depositCounter()
+          san.deposits(depositId),
+          san.depositCounter()
       ]).then(([deposit, bn_depositCounter]) => {
           D = parseDepositDef(deposit);
           D.depositId = depositId;
-          return snt.balanceOf(D.owner)
+          return san.balanceOf(D.owner)
               .then(balance => {
                   D.balanceFrom = balance;
                   let assertMap = assertFunc(D);
@@ -452,18 +452,18 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function collectPaymentData(subId){
         let R = new Map();
         return Promise.all([
-            snt.currentStatus(subId),
-            snt.subscriptions(subId)
+            san.currentStatus(subId),
+            san.subscriptions(subId)
         ]).then(([bn_statusId, subDef]) => {
             R = parseSubscriptionDef(subDef);
             R.subId = subId;
             R.status = bn_statusId.toNumber();
             R.amountToPay = R.pricePerHour.mul(R.chargePeriod).dividedToIntegerBy(SECONDS_IN_HOUR);
             return Promise.all([
-                snt.balanceOf(R.transferFrom),
-                snt.balanceOf(R.transferTo),
-                snt.balanceOf(PLATFORM_OWNER),
-                snt.subscriptionCounter()
+                san.balanceOf(R.transferFrom),
+                san.balanceOf(R.transferTo),
+                san.balanceOf(PLATFORM_OWNER),
+                san.subscriptionCounter()
             ]);
         }).then(balances => {
             [R.balanceFrom,R.balanceTo,R.balancePlatformOwner,R.subscriptionCounter] = balances;
