@@ -77,7 +77,7 @@ contract CrowdsaleMinter {
     mapping (address => uint) public community_amount_available;
     address[] public investors;
     bool private allBonusesAreMinted = false;
-
+    bool public TOKEN_STARTED = false;
     //
     // ======= interface methods =======
     //
@@ -117,20 +117,28 @@ contract CrowdsaleMinter {
     }
 
 
-    function withdrawFunds() external
+    function withdrawFundsAndStartToken() external
     inState(State.WITHDRAWAL_RUNNING)
     noReentrancy
     onlyOwner
     {
         // transfer funds to owner
         if (!OWNER.send(this.balance)) throw;
+
+        //notify token contract to start
+        if (SNT(snt).call(bytes4(sha3("start()")))) {
+            TOKEN_STARTED = true;
+            TokenStarted(snt);
+        };
     }
+
+    event TokenStarted(address tokenAddr);
 
     //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
     function mintAllBonuses() external
     inState(State.BONUS_MINTING)
     noReentrancy
-    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be pulic because bonus holder should call it.
+    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be public because bonus holder should be able call it.
     {
         assert(!allBonusesAreMinted);
         allBonusesAreMinted = true;
