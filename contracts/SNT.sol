@@ -3,7 +3,12 @@ pragma solidity ^0.4.8;
 import "./ExtERC20.sol";
 
 contract SNT is ExtERC20Impl, MintableToken {
-    function name() public constant returns (string) { return "SNT"; }
+
+    function SNT(){
+        symbol = "SNT";
+        name   = "Santiment Network Token";
+        decimals = 15;
+    }
 
     address CROWDSALE_MINTER = 0x00000000;
 

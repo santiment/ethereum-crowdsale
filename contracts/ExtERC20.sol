@@ -22,7 +22,7 @@ import "./ERC20.sol";
 //Ask:
 // Given: subscription one year:
 
-contract ExtERC20 is ERC20, Named, SubscriptionBase, XRateProvider {
+contract ExtERC20 is ERC20, SubscriptionBase, XRateProvider {
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) returns (bool success);
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
@@ -83,7 +83,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function getRate() returns(uint)   { return 1;       }
-    function getCode() returns(string) { return name();  }
+    function getCode() returns(string) { return symbol;  }
 
     function setPlatformFeePer10000(uint newFee) external only(admin) {
         require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)

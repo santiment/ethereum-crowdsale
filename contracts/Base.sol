@@ -95,10 +95,6 @@ contract PaymentListener is SubscriptionBase {
 
 }
 
-contract Named {
-    function name() public constant returns (string);
-}
-
 contract XRateProvider {
     function getRate() returns (uint);
     function getCode() returns (string);
