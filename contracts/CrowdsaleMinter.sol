@@ -41,6 +41,8 @@ contract CrowdsaleMinter {
     uint public constant TEAM_BONUS_PER_CENT           = 18;
     uint public constant ADVISORS_AND_FRIENDS_PER_CENT = 10;
 
+    uint public constant MAX_GASPRICE_FOR_FUNDING_TX_GWEI = 80;
+
     //ToDo: ASK: can't be constant. why?
     MintableToken  public TOKEN              = MintableToken(0x00000000000000000000000000);
     BalanceStorage public PRESALE_BALANCES   = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
@@ -101,6 +103,7 @@ contract CrowdsaleMinter {
     payable
     noReentrancy
     {
+        require(tx.gasprice <= MAX_GASPRICE_FOR_FUNDING_TX_GWEI * 1000000000);
         State state = currentState();
         uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
