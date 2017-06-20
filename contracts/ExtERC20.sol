@@ -82,9 +82,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         xrateProviders.push(XRateProvider(this));
     }
 
-    function getRate() returns(uint)   { return 1;       }
-    function getCode() returns(string) { return symbol;  }
-
     function setPlatformFeePer10000(uint newFee) external only(admin) {
         require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
         PLATFORM_FEE_PER_10000 = newFee;

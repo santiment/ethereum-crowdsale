@@ -4,13 +4,15 @@ import "./ExtERC20.sol";
 
 contract SNT is ExtERC20Impl, MintableToken {
 
-    function SNT(){
-        symbol = "SNT";
-        name   = "Santiment Network Token";
-        decimals = 15;
-    }
+    string public constant name     = "Santiment Network Token";
+    string public constant symbol   = "SNT";
+    uint8  public constant decimals = 15;
 
     address CROWDSALE_MINTER = 0x00000000;
+
+    //implementing this token as trivial 1:1 xchange rate provider.
+    function getRate() returns(uint)          { return 1;       }
+    function getCode() public returns(string) { return symbol; }
 
     function mint(uint amount, address account)
     onlyCrowdsaleMinter

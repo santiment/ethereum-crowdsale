@@ -20,11 +20,6 @@ contract ERC20 {
 
 contract ERC20Impl is ERC20, Base {
 
-    //to be set in subclass
-    string public symbol;
-    string public name;
-    uint8  public decimals;
-
     function transfer(address _to, uint256 _value) isRunningOnly validMsgDataLen(20+32) returns (bool success) {
         if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
             balances[msg.sender] -= _value;
