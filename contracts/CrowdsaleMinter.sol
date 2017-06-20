@@ -48,9 +48,9 @@ contract CrowdsaleMinter {
     BalanceStorage     public PRESALE_BALANCES     = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
     PresaleBonusVoting public PRESALE_BONUS_VOTING = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
-    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
-    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
-    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
+    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
+    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
+    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
