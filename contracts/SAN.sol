@@ -11,7 +11,7 @@ contract SAN is ExtERC20Impl, MintableToken {
     address CROWDSALE_MINTER = 0x00000000;
 
     //implement this token as trivial 1:1 exchange rate provider.
-    function getRate() returns(uint)          { return 1;       }
+    function getRate() returns(uint)          { return 1;      }
     function getCode() public returns(string) { return symbol; }
 
     function mint(uint amount, address account)
