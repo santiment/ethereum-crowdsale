@@ -8,6 +8,10 @@ contract AddressList {
     function contains(address addr) public returns (bool);
 }
 
+contract PresaleBonusVoting {
+    function rawVotes(address addr) public returns (uint rawVote);
+}
+
 contract MintableToken {
     //target token contract is responsible to accept only authorised mint calls.
     function mint(uint amount, address account);
@@ -42,9 +46,9 @@ contract CrowdsaleMinter {
     uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
     //ToDo: ASK: can't be constant. why?
-    MintableToken  public TOKEN              = MintableToken(0x00000000000000000000000000);
-    BalanceStorage public PRESALE_BALANCES   = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
-    BalanceStorage public PRESALE_BONUS_POLL = BalanceStorage(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
+    MintableToken      public TOKEN                = MintableToken(0x00000000000000000000000000);
+    BalanceStorage     public PRESALE_BALANCES     = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
+    PresaleBonusVoting public PRESALE_BONUS_VOTING = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
@@ -167,8 +171,16 @@ contract CrowdsaleMinter {
             address addr = PRESALE_ADDRESSES[i];
             uint presale_balance = PRESALE_BALANCES.balances(addr);
             if (presale_balance > 0) {
-                var presale_voting_percent = PRESALE_BONUS_POLL.balances(addr);
-                var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * presale_voting_percent / 100 / 100;
+
+                // this calculation is about waived pre-sale bonus.
+                // rawVote contains a value [0..1 ether]. 0 means "no bonus" (100% bonus waived). 1 ether means 100% bonus saved.
+                // "PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether" is an effective bonus per cent for particular presale member.
+                var rawVote = PRESALE_BONUS_VOTING.rawVotes(addr);
+                if (rawVote == 0)           rawVote = 1 ether; //special case "no vote" (default value) ==> (1 ether is 100%)
+                else if (rawVote == 1 wei)  rawVote = 0;       //special case "0%" (no bonus)           ==> (0 ether is   0%)
+                else if (rawVote > 1 ether) rawVote = 1 ether; //max bonus is 100% (should not occur)
+
+                var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
                 _mint(presale_balance + presale_bonus, addr);
             }
         }
@@ -278,7 +290,7 @@ contract CrowdsaleMinter {
             || OWNER == 0x0
             || PRIORITY_ADDRESS_LIST == 0x0
             || address(PRESALE_BALANCES) == 0x0
-            || address(PRESALE_BONUS_POLL) == 0x0
+            || address(PRESALE_BONUS_VOTING) == 0x0
             || COMMUNITY_SALE_START == 0
             || PRIORITY_SALE_START == 0
             || PUBLIC_SALE_START == 0
