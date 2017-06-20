@@ -1,10 +1,5 @@
 pragma solidity ^0.4.8;
 
-contract BalanceStore {
-    mapping (address => uint256) balances;
-    function balanceOf(address _owner) constant returns (uint256 balance);
-}
-
 contract MintableToken {
     function mint(uint amount, address account);
     function start();
