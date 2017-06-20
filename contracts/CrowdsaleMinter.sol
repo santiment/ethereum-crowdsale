@@ -66,12 +66,20 @@ contract CrowdsaleMinter {
     /* ====== public states START====== */
 
     bool public isAborted = false;
-    uint public total_received_amount;
     mapping (address => uint) public balances;
     mapping (address => uint) public community_amount_available;
-    address[] public investors;
-    bool private allBonusesAreMinted = false;
     bool public TOKEN_STARTED = false;
+    uint public total_received_amount;
+    address[] public investors;
+
+    //displays number of uniq investors
+    function investorsCount() constant external returns(uint) { return investors.length; }
+
+    //displays received amount in eth upto now
+    function TOTAL_RECEIVED_ETH() constant external returns (uint) { return total_received_amount / 1 ether; }
+
+    //displays current contract state in human readable form
+    function state() constant external returns (string) { return stateNames[ uint(currentState()) ]; }
 
     /* ====== public states END ====== */
 
@@ -82,6 +90,7 @@ contract CrowdsaleMinter {
     uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MAX_TOTAL_AMOUNT_TO_RECEIVE = MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MIN_ACCEPTED_AMOUNT = MIN_ACCEPTED_AMOUNT_FINNEY * 1 finney;
+    bool private allBonusesAreMinted = false;
 
     //
     // ======= interface methods =======
@@ -131,10 +140,10 @@ contract CrowdsaleMinter {
         if (!OWNER.send(this.balance)) throw;
 
         //notify token contract to start
-        if (SNT(snt).call(bytes4(sha3("start()")))) {
+        if (TOKEN.call(bytes4(sha3("start()")))) {
             TOKEN_STARTED = true;
-            TokenStarted(snt);
-        };
+            TokenStarted(TOKEN);
+        }
     }
 
     event TokenStarted(address tokenAddr);
@@ -178,15 +187,6 @@ contract CrowdsaleMinter {
     {
         isAborted = true;
     }
-
-    //displays current contract state in human readable form
-    function state() external constant
-    returns (string)
-    {
-        return stateNames[ uint(currentState()) ];
-    }
-
-    function investorsCount() constant external returns(uint) { return investors.length; }
 
     //
     // ======= implementation methods =======
