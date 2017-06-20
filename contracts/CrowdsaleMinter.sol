@@ -1,4 +1,4 @@
-pragma solidity ^0.4.8;
+pragma solidity ^0.4.11;
 
 contract BalanceStorage {
     function balances(address account) public returns(uint balance);
