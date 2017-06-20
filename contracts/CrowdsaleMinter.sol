@@ -39,7 +39,7 @@ contract CrowdsaleMinter {
     //ToDo: check the numbers
     uint public constant PLATFORM_REWARDS_PER_CENT     = 1;
     uint public constant TEAM_BONUS_PER_CENT           = 18;
-    uint public constant ADVISORS_AND_FRIENDS_PER_CENT = 10;
+    uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
     uint public constant MAX_GASPRICE_FOR_FUNDING_TX_GWEI = 80;
 
@@ -163,7 +163,7 @@ contract CrowdsaleMinter {
         //mint group bonuses
         _mint(total_received_amount * PLATFORM_REWARDS_PER_CENT / 100, PLATFORM_REWARDS_WALLET);
         _mint(total_received_amount * TEAM_BONUS_PER_CENT / 100, TEAM_GROUP_WALLET);
-        _mint(total_received_amount * ADVISORS_AND_FRIENDS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
+        _mint(total_received_amount * ADVISORS_AND_PARTNERS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
 
         //mint presale bonuses
         for(uint i=0; i < PRESALE_ADDRESSES.length; ++i) {
