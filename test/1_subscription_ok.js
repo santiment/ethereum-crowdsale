@@ -14,6 +14,7 @@ const assert = require('chai').assert;
 const Promise = require('bluebird');
 const TestableSAN = artifacts.require('TestableSAN');
 const SAN = artifacts.require('SAN');
+const SubscriptionModule = artifacts.require('ExtERC20Impl');
 const TestableProvider = artifacts.require('TestableProvider');
 
 const web3UtilApi = require('web3/lib/utils/utils.js');
@@ -26,6 +27,7 @@ const SECONDS_IN_HOUR = 60*60;
 
 contract('san', function(accounts){
     var san;
+    var sub;
     var myProvider;
     const CREATOR = accounts[0];
     const USER_01 = accounts[1];
@@ -54,14 +56,19 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     before(function(){
         return evm_snapshot().then(() => {
-            return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:4200000})
+            return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:4800000})
             .then( _instance =>{
                 san = _instance;
-                return TestableProvider
-                    .new(san.address,PROVIDER_OWNER, {from:CREATOR})
+                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:4800000})
                     .then(_instance => {
-                        myProvider=_instance;
-                        return san.enableServiceProvider(_instance.address,{from:PLATFORM_OWNER})
+                        sub = _instance;
+                        return san.attachSubscriptionModule(sub.address, {from:PLATFORM_OWNER, gas:4800000});
+                    }).then(tx => {
+                        return TestableProvider.new(sub.address,PROVIDER_OWNER, {from:CREATOR})
+                            .then(_instance => {
+                                myProvider=_instance;
+                                return sub.enableServiceProvider(_instance.address,{from:PLATFORM_OWNER})
+                            })
                     })
             });
         });
@@ -81,23 +88,23 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     it('TestableProvider should be correctly initialized', function() {
         return Promise.join(
-            myProvider.san(),
+            myProvider.sub(),
             myProvider.owner(),
-            (_san, _owner) => {
-                assert.equal(san.address, _san, 'san token address mismatch');
+            (_sub, _owner) => {
+                assert.equal(sub.address, _sub, 'sub module address mismatch');
                 assert.equal(PROVIDER_OWNER, _owner, 'owner address mismatch');
             }
         );
     });
 
     //abi: func calls
-    const abi_Subscription = SAN.abi.find(e => e.name==='subscriptions').outputs;
-    const abi_Deposit = SAN.abi.find(e => e.name==='deposits').outputs;
+    const abi_Subscription = SubscriptionModule.abi.find(e => e.name==='subscriptions').outputs;
+    const abi_Deposit = SubscriptionModule.abi.find(e => e.name==='deposits').outputs;
 
     //abi: Events
-    const abi_NewDeposit = SAN.abi.find(e => e.name==='NewDeposit');
-    const abi_DepositClosed = SAN.abi.find(e => e.name==='DepositClosed');
-    const abi_NewSubscription = SAN.abi.find(e => e.name==='NewSubscription');
+    const abi_NewDeposit = SubscriptionModule.abi.find(e => e.name==='NewDeposit');
+    const abi_DepositClosed = SubscriptionModule.abi.find(e => e.name==='DepositClosed');
+    const abi_NewSubscription = SubscriptionModule.abi.find(e => e.name==='NewSubscription');
     const abi_Payment = SAN.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
     const abi_SubCanceled = TestableProvider.abi.find(e => e.name==='SubCanceled');
@@ -161,7 +168,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     transferFrom: 0
                 })),
             ]).then(([user_balance0, s0]) => {
-                return san.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
+                return sub.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
                 .then(tx => assertLogEvent(tx, abi_NewSubscription, 'Check: NewSubscription', (e) => ({
                     subId: s0.subscriptionCounter.plus(1),
                     customer : user,
@@ -214,7 +221,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             }).then(s0 => {
                 if (user === __FROM)    user = s0.transferFrom;
                 else if (user === __TO) user = s0.transferTo;
-                return san.executeSubscription(subId, {from:user}) //method under test
+                return sub.executeSubscription(subId, {from:user}) //method under test
                     .then(tx => assertLogEvent(tx, abi_Payment, i+': Check: payment event', (e) =>({
                         returnCode : 0,
                         subId      : subId,
@@ -224,7 +231,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         _fee       : e._value.dividedToIntegerBy(PLATFORM_FEE_PER_10000*10000),
                         caller     : user
                      })))
-                    .then(e => assertSubscription(s0, i+': Check: after wait and before charge', (s1) => ({
+                    .then(e => assertSubscription(s0, i+': Check: after execute subscription', (s1) => ({
                         status      : status2,
                         paidUntil   : s0.paidUntil.plus(s0.chargePeriod),
                         execCounter : s0.execCounter.plus(1),
@@ -243,7 +250,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return assertSubscription(subId, i+':Check: PreCondition', (s0)=>({
                 status : SUB_STATUS.PAID
             })).then(s0 => {
-                return san.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
+                return sub.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
                 .then(tx => assertLogEvent(tx, abi_SubCanceled, i+': Check: cancel event', (e) =>({
                     subId      : subId,
                     caller     : s0.transferFrom,
@@ -259,7 +266,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     status : SUB_STATUS.EXPIRED
                 })));
             }).then(s0 => {
-                return san.paybackSubscriptionDeposit(subId) //method under test
+                return sub.paybackSubscriptionDeposit(subId) //method under test
                 .then(tx => assertSubscription(s0, i+':Check: deposit is paid back', (s1)=>({
                     balanceFrom   : s0.balanceFrom.plus(s0.depositAmount),
                     depositAmount : 0,
@@ -274,7 +281,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     .forEach(([user, amount, info],i)=>{
         it('create / claim deposite',function(){
             return san.balanceOf(user).then(user_balance0 => {
-                return san.createDeposit(amount, info, {from:USER_01})
+                return sub.createDeposit(amount, info, {from:USER_01})
                     .then(tx => assertLogEvent(tx,abi_NewDeposit,i+'Check: event NewDeposit created', (evnt)=> ({
                         depositId : assert.ok(new BigNumber(evnt.depositId).isBigNumber),
                         value : amount,
@@ -287,12 +294,12 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         descriptor  : info,
                         balanceFrom : user_balance0.minus(s1.value)
                     })))
-                    .then(s1 => san.claimDeposit(s1.depositId,{from:USER_01}))
+                    .then(s1 => sub.claimDeposit(s1.depositId,{from:USER_01}))
                     .then(tx => assertLogEvent(tx,abi_DepositClosed,i+'Check: event DepositClosed created', (evnt)=> ({
                         depositId : evnt.depositId
                     })))
                     .then(evnt => Promise.all([
-                        san.deposits(evnt.depositId),
+                        sub.deposits(evnt.depositId),
                         san.balanceOf(user)
                     ]))
                     .then(([deposit,user_balance1]) => {
@@ -312,7 +319,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             .then(()=> assertSubscription(prevState, 'wait before hold', (s0)=> ({
                 status: SUB_STATUS.CHARGEABLE
             }))))
-        .then(prevState => san.holdSubscription(subId, {from:user})
+        .then(prevState => sub.holdSubscription(subId, {from:user})
             .then(tx=> assertSubscription(prevState, 'just after hold', (s0)=> ({
                 status: SUB_STATUS.ON_HOLD,
                 onHoldSince: ethNow(tx.receipt.blockNumber)
@@ -321,7 +328,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             .then(()=> assertSubscription(prevState, 'wait after hold', (s0)=> ({
                 status: SUB_STATUS.ON_HOLD
             }))))
-        .then(prevState => san.unholdSubscription(subId, {from:user})
+        .then(prevState => sub.unholdSubscription(subId, {from:user})
             .then(tx=> assertSubscription(prevState, 'just after unhold', (s0)=> ({
                 status     : SUB_STATUS.EXPIRED,
                 onHoldSince: 0,
@@ -338,9 +345,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         return assertSubscription(subId, 'Check: PreCondition', (s0)=>({
             status: SUB_STATUS.CHARGEABLE
         }))
-        .then(s0 => san.executeSubscription(subId, {from:user})
+        .then(s0 => sub.executeSubscription(subId, {from:user})
             .then(tx => collectPaymentData(subId))
-            .then(s0 => san.holdSubscription(subId, {from:user})
+            .then(s0 => sub.holdSubscription(subId, {from:user})
                 .then(tx=> assertSubscription(s0, 'just after hold', (s1)=>({
                     status: SUB_STATUS.ON_HOLD,
                     onHoldSince: ethNow(tx.receipt.blockNumber)
@@ -349,7 +356,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 .then(() => assertSubscription(s0, 'wait after hold', (s1)=>({
                     status: SUB_STATUS.ON_HOLD
                 }))))
-            .then(s0 => san.unholdSubscription(subId, {from:user})
+            .then(s0 => sub.unholdSubscription(subId, {from:user})
                 .then(tx=> assertSubscription(s0, 'just after unhold', (s1)=>{console.log(ethNow(), s0, s1); return ({
                     status     : SUB_STATUS.CANCELED,
                     onHoldSince: 0,
@@ -366,8 +373,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function assertDeposit(depositId, assertMsg, assertFunc){
       let D = new Map();
       return Promise.all([
-          san.deposits(depositId),
-          san.depositCounter()
+          sub.deposits(depositId),
+          sub.depositCounter()
       ]).then(([deposit, bn_depositCounter]) => {
           D = parseDepositDef(deposit);
           D.depositId = depositId;
@@ -452,8 +459,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function collectPaymentData(subId){
         let R = new Map();
         return Promise.all([
-            san.currentStatus(subId),
-            san.subscriptions(subId)
+            sub.currentStatus(subId),
+            sub.subscriptions(subId)
         ]).then(([bn_statusId, subDef]) => {
             R = parseSubscriptionDef(subDef);
             R.subId = subId;
@@ -463,7 +470,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 san.balanceOf(R.transferFrom),
                 san.balanceOf(R.transferTo),
                 san.balanceOf(PLATFORM_OWNER),
-                san.subscriptionCounter()
+                sub.subscriptionCounter()
             ]);
         }).then(balances => {
             [R.balanceFrom,R.balanceTo,R.balancePlatformOwner,R.subscriptionCounter] = balances;

@@ -78,6 +78,7 @@ contract SubscriptionBase {
     event NewDeposit(uint depositId, uint value, address sender);
     event NewXRateProvider(address addr, uint16 xRateProviderId);
     event DepositClosed(uint depositId);
+
 }
 
 contract PaymentListener is SubscriptionBase {

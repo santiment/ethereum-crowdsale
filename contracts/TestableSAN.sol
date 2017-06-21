@@ -9,7 +9,6 @@ contract TestableSAN is SAN {
             __setBalance(accounts[i], amounts[i]);
         }
         isRunning = true;
-        admin = msg.sender;
     }
 
     function __setBalance(address beneficiary, uint amount) {

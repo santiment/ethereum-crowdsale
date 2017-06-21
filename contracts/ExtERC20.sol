@@ -22,7 +22,15 @@ import "./ERC20.sol";
 //Ask:
 // Given: subscription one year:
 
-contract ExtERC20 is ERC20, SubscriptionBase, XRateProvider {
+
+contract SANSupport {
+    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
+    function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
+    function _mintFromDeposit(address owner, uint amount) public;
+    function _burnForDeposit(address owner, uint amount) public returns(bool success);
+}
+
+contract ExtERC20 is ERC20, SubscriptionBase {
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) returns (bool success);
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
@@ -69,17 +77,22 @@ contract ExtERC20 is ERC20, SubscriptionBase, XRateProvider {
 }
 
 contract ExtERC20Impl is ExtERC20, ERC20Impl {
-    address public beneficiary;
     address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
     address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before becomes admin.
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
     uint public totalOnDeposit;
     uint public totalInCirculation;
+    SANSupport san;
 
     function ExtERC20Impl() {
-        beneficiary = admin = msg.sender;
+        admin = msg.sender;
         xrateProviders.push(XRateProvider(this));
+    }
+
+    function attachToken(address token) public {
+        assert(address(san) == 0); //only in new deployed state
+        san = SANSupport(token);
     }
 
     function setPlatformFeePer10000(uint newFee) external only(admin) {
@@ -94,10 +107,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     function confirmAdminChange() external only(nextAdmin) {
         admin = nextAdmin;
         delete nextAdmin;
-    }
-
-    function setBeneficiary(address newBeneficiary) external only(admin) {
-        beneficiary = newBeneficiary;
     }
 
     function enableServiceProvider(PaymentListener addr) external only(admin) {
@@ -140,7 +149,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     function getXRateProviderLength() external constant returns (uint) { return xrateProviders.length; }
 
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
-        if (_fulfillPayment(msg.sender, _to, _value, 0)) {
+        if (san._fulfillPayment(msg.sender, _to, _value, 0, msg.sender)) {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
             return true;
@@ -149,7 +158,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     }
 
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
-        if (_fulfillPreapprovedPayment(_from, _to, _value)) {
+        if (san._fulfillPreapprovedPayment(_from, _to, _value, msg.sender)) {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
             return true;
@@ -157,7 +166,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
           else { return false; }
     }
 
-    function executeSubscription(uint subId) isRunningOnly public returns (bool) {
+    function executeSubscription(uint subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
         assert (msg.sender == sub.transferFrom || msg.sender == sub.transferTo || msg.sender == admin);
@@ -165,7 +174,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
             var _value = _amountToCharge(sub);
-            if (_fulfillPayment(_from, _to, _value, subId)) {
+            if (san._fulfillPayment(_from, _to, _value, subId, msg.sender)) {
                 sub.paidUntil  = max(sub.paidUntil, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
                 // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
@@ -186,38 +195,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
             sub.paidUntil = newDueDate;
             return true;
         }
-    }
-
-    function _fulfillPreapprovedPayment(address _from, address _to, uint _value) internal returns (bool success) {
-        success = _from != msg.sender && allowed[_from][msg.sender] >= _value;
-        if (!success) {
-            Payment(_from, _to, _value, _fee(_value), msg.sender, PaymentStatus.APPROVAL_ERROR, 0);
-        } else {
-            success = _fulfillPayment(_from, _to, _value, 0);
-            if (success) {
-                allowed[_from][msg.sender] -= _value;
-            }
-        }
-        return success;
-    }
-
-    function _fulfillPayment(address _from, address _to, uint _value, uint subId) internal returns (bool success) {
-        var fee = _fee(_value);
-        assert (fee <= _value); //internal sanity check
-        if (balances[_from] >= _value && balances[_to] + _value > balances[_to]) {
-            balances[_from] -= _value;
-            balances[_to] += _value - fee;
-            balances[beneficiary] += fee;
-            Payment(_from, _to, _value, fee, msg.sender, PaymentStatus.OK, subId);
-            return true;
-        } else {
-            Payment(_from, _to, _value, fee, msg.sender, PaymentStatus.BALANCE_ERROR, subId);
-            return false;
-        }
-    }
-
-    function _fee(uint _value) internal constant returns (uint fee) {
-        return _value * PLATFORM_FEE_PER_10000 / 10000;
     }
 
     function currentStatus(uint subId) public constant returns(Status status) {
@@ -290,7 +267,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         newSub.expireOn = _expireOn;
         newSub.depositAmount = _applyXchangeRate(newSub.depositAmount, newSub);
         //depositAmount is already stored in the sub, so burn the same amount from customer's account.
-        assert (_burnForDeposit(msg.sender, newSub.depositAmount));
+        assert (san._burnForDeposit(msg.sender, newSub.depositAmount));
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
         return (subscriptionCounter = newSubId);
@@ -336,7 +313,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
     function _returnSubscriptionDespoit(Subscription storage sub) internal {
         uint depositAmount = sub.depositAmount;
         sub.depositAmount = 0;
-        _mintFromDeposit(msg.sender, depositAmount);
+        san._mintFromDeposit(msg.sender, depositAmount);
     }
 
     // a service can allow/disallow a hold/unhold request
@@ -379,11 +356,11 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
         var depositAmount = sub.depositAmount;
         assert (depositAmount > 0);
         sub.depositAmount = 0;
-        _mintFromDeposit(sub.transferFrom, depositAmount);
+        san._mintFromDeposit(sub.transferFrom, depositAmount);
     }
 
     function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
-        assert (_burnForDeposit(owner,_value));
+        assert (san._burnForDeposit(owner,_value));
         deposits[++depositCounter] = Deposit ({
             owner : owner,
             value : _value,
@@ -395,7 +372,7 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function _claimDeposit(uint depositId, address returnTo) internal {
         if (deposits[depositId].owner == returnTo) {
-            _mintFromDeposit(returnTo, deposits[depositId].value);
+            san._mintFromDeposit(returnTo, deposits[depositId].value);
             delete deposits[depositId];
             DepositClosed(depositId);
         } else { throw; }
@@ -403,21 +380,6 @@ contract ExtERC20Impl is ExtERC20, ERC20Impl {
 
     function _amountToCharge(Subscription storage sub) internal returns (uint) {
         return _applyXchangeRate(sub.pricePerHour * sub.chargePeriod, sub) / 1 hours;
-    }
-
-    function _mintFromDeposit(address owner, uint amount) internal {
-        balances[owner] += amount;
-        totalOnDeposit -= amount;
-        totalInCirculation += amount;
-    }
-
-    function _burnForDeposit(address owner, uint amount) internal returns (bool success){
-        if (balances[owner] >= amount) {
-            balances[owner] -= amount;
-            totalOnDeposit += amount;
-            totalInCirculation -= amount;
-            return true;
-        } else { return false; }
     }
 
     function _applyXchangeRate(uint amount, Subscription storage sub) internal returns (uint){

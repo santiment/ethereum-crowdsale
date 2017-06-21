@@ -3,11 +3,11 @@ pragma solidity ^0.4.11;
 import "./SAN.sol";
 
 contract TestableProvider is PaymentListener, Base {
-    SAN public san;
+    ExtERC20 public sub;
     address public owner;
 
-    function TestableProvider(SAN _san, address _owner) public {
-        san = _san;
+    function TestableProvider(ExtERC20 _sub, address _owner) public {
+        sub = _sub;
         owner = _owner>0 ? _owner : tx.origin;
     }
 
@@ -15,7 +15,7 @@ contract TestableProvider is PaymentListener, Base {
         uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _validUntil,
         uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor
     )  returns (uint subId) {
-        subId = SAN(san).createSubscriptionOffer(_price, _xrateProviderId, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
+        subId = sub.createSubscriptionOffer(_price, _xrateProviderId, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
         //if (uint(san)>0) subId = san.createOffer2(_price);
         NewOffer(this,subId);
     }
@@ -31,7 +31,7 @@ contract TestableProvider is PaymentListener, Base {
     }
 
     function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool) {
-        var (transferFrom, transferTo, pricePerHour, chargePeriod, startOn, descriptor) = SAN(san).subscriptionDetails(subId);
+        var (transferFrom, transferTo, pricePerHour, chargePeriod, startOn, descriptor) = sub.subscriptionDetails(subId);
         assert (transferFrom == caller); //accept hold/unhold requests only from subscription owner.
 
         _assertSubStatus(subId);
@@ -40,7 +40,7 @@ contract TestableProvider is PaymentListener, Base {
     }
 
     function _assertSubStatus(uint subId) internal {
-        var (depositAmount, expireOn, execCounter, paidUntil, onHoldSince) = SAN(san).subscriptionStatus(subId);
+        var (depositAmount, expireOn, execCounter, paidUntil, onHoldSince) = sub.subscriptionStatus(subId);
         //ToDo: improve tests for test this condition
         //assert (paidUntil >= now); //accept hold/unhold requests only from subscription without debts.
     }
