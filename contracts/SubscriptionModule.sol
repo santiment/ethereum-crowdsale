@@ -22,15 +22,58 @@ import "./ERC20.sol";
 //Ask:
 // Given: subscription one year:
 
+contract PaymentListener {
 
-contract SANSupport {
-    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
-    function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
-    function _mintFromDeposit(address owner, uint amount) public;
-    function _burnForDeposit(address owner, uint amount) public returns(bool success);
+    function onPayment(address _from, uint _value, bytes _paymentData) returns (bool);
+    function onSubExecuted(uint subId) returns (bool);
+    function onSubNew(uint newSubId, uint offerId) returns (bool);
+    function onSubCanceled(uint subId, address caller) returns (bool);
+    function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool);
+
 }
 
-contract ExtERC20 is ERC20, SubscriptionBase {
+contract XRateProvider {
+    function getRate() returns (uint);
+    function getCode() returns (string);
+}
+
+contract SubscriptionBase {
+    enum Status {OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
+
+    struct Subscription {
+        address transferFrom;
+        address transferTo;
+        uint pricePerHour;
+        uint initialXrate;
+        uint16 xrateProviderId;
+        uint paidUntil;
+        uint chargePeriod;
+        uint depositAmount;
+
+        uint startOn;
+        uint expireOn;
+        uint execCounter;
+        bytes descriptor;
+        uint onHoldSince;
+    }
+
+    struct Deposit {
+        uint value;
+        address owner;
+        bytes descriptor;
+    }
+
+    //ToDo: change arg order
+    event NewSubscription(address customer, address service, uint offerId, uint subId);
+    event NewDeposit(uint depositId, uint value, address sender);
+    event NewXRateProvider(address addr, uint16 xRateProviderId);
+    event DepositClosed(uint depositId);
+
+}
+
+contract SubscriptionModule is SubscriptionBase, Base {
+    function attachToken(address token) public;
+
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) returns (bool success);
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) returns (bool success);
 
@@ -76,23 +119,23 @@ contract ExtERC20 is ERC20, SubscriptionBase {
 
 }
 
-contract ExtERC20Impl is ExtERC20, ERC20Impl {
+contract SubscriptionModuleImpl is SubscriptionModule  {
     address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
     address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before becomes admin.
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
     uint public totalOnDeposit;
     uint public totalInCirculation;
-    SANSupport san;
+    ERC20ModuleSupport san;
 
-    function ExtERC20Impl() {
+    function SubscriptionModuleImpl() {
         admin = msg.sender;
         xrateProviders.push(XRateProvider(this));
     }
 
     function attachToken(address token) public {
         assert(address(san) == 0); //only in new deployed state
-        san = SANSupport(token);
+        san = ERC20ModuleSupport(token);
     }
 
     function setPlatformFeePer10000(uint newFee) external only(admin) {

@@ -14,7 +14,7 @@ const assert = require('chai').assert;
 const Promise = require('bluebird');
 const TestableSAN = artifacts.require('TestableSAN');
 const SAN = artifacts.require('SAN');
-const SubscriptionModule = artifacts.require('ExtERC20Impl');
+const SubscriptionModule = artifacts.require('SubscriptionModuleImpl');
 const TestableProvider = artifacts.require('TestableProvider');
 
 const web3UtilApi = require('web3/lib/utils/utils.js');

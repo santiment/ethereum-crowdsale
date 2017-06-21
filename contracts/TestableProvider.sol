@@ -2,11 +2,11 @@ pragma solidity ^0.4.11;
 
 import "./SAN.sol";
 
-contract TestableProvider is PaymentListener, Base {
-    ExtERC20 public sub;
+contract TestableProvider is PaymentListener, SubscriptionBase, Base {
+    SubscriptionModule public sub;
     address public owner;
 
-    function TestableProvider(ExtERC20 _sub, address _owner) public {
+    function TestableProvider(SubscriptionModule _sub, address _owner) public {
         sub = _sub;
         owner = _owner>0 ? _owner : tx.origin;
     }

@@ -1,8 +1,9 @@
 pragma solidity ^0.4.11;
 
-import "./ExtERC20.sol";
+import "./ERC20.sol";
+import "./SubscriptionModule.sol";
 
-contract SAN is ERC20Impl, MintableToken, XRateProvider, SANSupport {
+contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     string public constant name     = "SANtiment network token";
     string public constant symbol   = "SAN";
@@ -23,7 +24,7 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, SANSupport {
         beneficiary = newBeneficiary;
     }
 
-    function attachSubscriptionModule(ExtERC20Impl subModule) public {
+    function attachSubscriptionModule(SubscriptionModule subModule) public {
         SUBSCRIPTION_MODULE = subModule;
         subModule.attachToken(this);
     }
