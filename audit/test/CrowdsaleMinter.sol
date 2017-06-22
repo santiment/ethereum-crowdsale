@@ -44,16 +44,16 @@ contract CrowdsaleMinter {
     string public constant VERSION = "0.2.0";
 
     /* ====== configuration START ====== */
-    uint public constant COMMUNITY_SALE_START = 0; /* approx. 30.07.2017 00:00 */
-    uint public constant PRIORITY_SALE_START  = 0; /* approx. 30.07.2017 00:00 */
-    uint public constant PUBLIC_SALE_START    = 0; /* approx. 30.07.2017 00:00 */
-    uint public constant PUBLIC_SALE_END      = 0; /* approx. 30.07.2017 00:00 */
-    uint public constant WITHDRAWAL_END       = 0; /* approx. 30.07.2017 00:00 */
+    uint public constant COMMUNITY_SALE_START = 1901;
+    uint public constant PRIORITY_SALE_START  = 1906;
+    uint public constant PUBLIC_SALE_START    = 1911;
+    uint public constant PUBLIC_SALE_END      = 1916;
+    uint public constant WITHDRAWAL_END       = 1921;
 
-    address public constant OWNER = 0x00000000000000000000000000;
+    address public constant OWNER = 0xa11aae29840fbb5c86e6fd4cf809eba183aef433;
     address public constant ADMIN = 0x00000000000000000000000000;
 
-    address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
+    address public constant PRIORITY_ADDRESS_LIST = 0x24ad1371437980d21a8ebf2e46a824b860a6d47c;
 
     address public constant TEAM_GROUP_WALLET           = 0x00000000000000000000000000;
     address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;

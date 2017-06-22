@@ -39,3 +39,11 @@ jspm_packages
 # Truffle Build
 build
 tt.sh
+
+.DS_Store
+.project
+.settings
+private
+private/*
+audit/test/testchain/geth*
+audit/test/testchain/history*

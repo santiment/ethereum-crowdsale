@@ -1,8 +1,27 @@
 # CrowdsaleMinter
 
+
 ```javascript
-// BK NOTE - Upgrade the Solidity version to the latest 0.4.11
-pragma solidity ^0.4.8;
+pragma solidity ^0.4.11;
+
+// ==== DISCLAIMER ====
+//
+// ETHEREUM IS STILL AN EXPEREMENTAL TECHNOLOGY.
+// ALTHOUGH THIS SMART CONTRACT WAS CREATED WITH GREAT CARE AND IN THE HOPE OF BEING USEFUL, NO GUARANTEES OF FLAWLESS OPERATION CAN BE GIVEN.
+// IN PARTICULAR - SUBTILE BUGS, HACKER ATTACKS OR MALFUNCTION OF UNDERLYING TECHNOLOGY CAN CAUSE UNINTENTIONAL BEHAVIOUR.
+// YOU ARE STRONGLY ENCOURAGED TO STUDY THIS SMART CONTRACT CAREFULLY IN ORDER TO UNDERSTAND POSSIBLE EDGE CASES AND RISKS.
+// DON'T USE THIS SMART CONTRACT IF YOU HAVE SUBSTANTIAL DOUBTS OR IF YOU DON'T KNOW WHAT YOU ARE DOING.
+//
+// THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+// AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+// OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// ====
+//
+
+/// @author Santiment GmbH
+/// @title  CrowdsaleMinter
 
 contract BalanceStorage {
     function balances(address account) public returns(uint balance);
@@ -10,6 +29,10 @@ contract BalanceStorage {
 
 contract AddressList {
     function contains(address addr) public returns (bool);
+}
+
+contract PresaleBonusVoting {
+    function rawVotes(address addr) public returns (uint rawVote);
 }
 
 contract MintableToken {
@@ -36,43 +59,22 @@ contract CrowdsaleMinter {
 
     address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
 
-    address public constant PLATFORM_REWARDS_WALLET     = 0x00000000000000000000000000;
     address public constant TEAM_GROUP_WALLET           = 0x00000000000000000000000000;
     address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;
 
-    //ToDo: check the numbers
-    uint public constant PLATFORM_REWARDS_PER_CENT     = 1;
     uint public constant TEAM_BONUS_PER_CENT           = 18;
-    uint public constant ADVISORS_AND_FRIENDS_PER_CENT = 10;
+    uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
-    //ToDo: ASK: can't be constant. why?
-    MintableToken  public TOKEN              = MintableToken(0x00000000000000000000000000);
-    BalanceStorage public PRESALE_BALANCES   = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
-    BalanceStorage public PRESALE_BONUS_POLL = BalanceStorage(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
+    MintableToken      public TOKEN                = MintableToken(0x00000000000000000000000000);
+    BalanceStorage     public PRESALE_BALANCES     = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
+    PresaleBonusVoting public PRESALE_BONUS_VOTING = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
-    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 0;
-    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
-    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 0;
-    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 1000;
+    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
+    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
+    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
+    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
-
-    /* ====== configuration END ====== */
-
-    string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "BONUS_MINTING", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
-    enum State { BEFORE_START, COMMUNITY_SALE, PRIORITY_SALE, PRIORITY_SALE_FINISHED, PUBLIC_SALE, BONUS_MINTING, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
-
-    uint private constant COMMUNITY_PLUS_PRIORITY_SALE_CAP = COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH * 1 ether;
-    uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
-    uint private constant MAX_TOTAL_AMOUNT_TO_RECEIVE = MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
-    uint private constant MIN_ACCEPTED_AMOUNT = MIN_ACCEPTED_AMOUNT_FINNEY * 1 finney;
-
-    bool public isAborted = false;
-    uint public total_received_amount;
-    mapping (address => uint) public balances;
-    mapping (address => uint) public community_amount_available;
-    address[] public investors;
-    bool private allBonusesAreMinted = false;
 
     //constructor
     function CrowdsaleMinter() validSetupOnly() {
@@ -81,6 +83,37 @@ contract CrowdsaleMinter {
         community_amount_available[0x00000002] = 2 ether;
         //...
     }
+
+    /* ====== configuration END ====== */
+
+    /* ====== public states START====== */
+
+    bool public isAborted = false;
+    mapping (address => uint) public balances;
+    mapping (address => uint) public community_amount_available;
+    bool public TOKEN_STARTED = false;
+    uint public total_received_amount;
+    address[] public investors;
+
+    //displays number of uniq investors
+    function investorsCount() constant external returns(uint) { return investors.length; }
+
+    //displays received amount in eth upto now
+    function TOTAL_RECEIVED_ETH() constant external returns (uint) { return total_received_amount / 1 ether; }
+
+    //displays current contract state in human readable form
+    function state() constant external returns (string) { return stateNames[ uint(currentState()) ]; }
+
+    /* ====== public states END ====== */
+
+    string[] private stateNames = ["BEFORE_START", "COMMUNITY_SALE", "PRIORITY_SALE", "PRIORITY_SALE_FINISHED", "PUBLIC_SALE", "BONUS_MINTING", "WITHDRAWAL_RUNNING", "REFUND_RUNNING", "CLOSED" ];
+    enum State { BEFORE_START, COMMUNITY_SALE, PRIORITY_SALE, PRIORITY_SALE_FINISHED, PUBLIC_SALE, BONUS_MINTING, WITHDRAWAL_RUNNING, REFUND_RUNNING, CLOSED }
+
+    uint private constant COMMUNITY_PLUS_PRIORITY_SALE_CAP = COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH * 1 ether;
+    uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
+    uint private constant MAX_TOTAL_AMOUNT_TO_RECEIVE = MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
+    uint private constant MIN_ACCEPTED_AMOUNT = MIN_ACCEPTED_AMOUNT_FINNEY * 1 finney;
+    bool private allBonusesAreMinted = false;
 
     //
     // ======= interface methods =======
@@ -121,46 +154,59 @@ contract CrowdsaleMinter {
     }
 
 
-    function withdrawFunds() external
+    function withdrawFundsAndStartToken() external
     inState(State.WITHDRAWAL_RUNNING)
-    onlyOwner
     noReentrancy
+    onlyOwner
     {
         // transfer funds to owner
         if (!OWNER.send(this.balance)) throw;
+
+        //notify token contract to start
+        if (TOKEN.call(bytes4(sha3("start()")))) {
+            TOKEN_STARTED = true;
+            TokenStarted(TOKEN);
+        }
     }
 
+    event TokenStarted(address tokenAddr);
+
     //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
-    function mintAllBonuses()
+    function mintAllBonuses() external
     inState(State.BONUS_MINTING)
-    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be pulic because bonus holder should call it.
     noReentrancy
-    external
+    //onlyAdmin     //ToDo: think about possibe attac vector if this func is public. It must be public because bonus holder should be able call it.
     {
         assert(!allBonusesAreMinted);
         allBonusesAreMinted = true;
 
         //mint group bonuses
-        _mint(total_received_amount * PLATFORM_REWARDS_PER_CENT / 100, PLATFORM_REWARDS_WALLET);
         _mint(total_received_amount * TEAM_BONUS_PER_CENT / 100, TEAM_GROUP_WALLET);
-        _mint(total_received_amount * ADVISORS_AND_FRIENDS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
+        _mint(total_received_amount * ADVISORS_AND_PARTNERS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
 
         //mint presale bonuses
         for(uint i=0; i < PRESALE_ADDRESSES.length; ++i) {
             address addr = PRESALE_ADDRESSES[i];
             uint presale_balance = PRESALE_BALANCES.balances(addr);
             if (presale_balance > 0) {
-                var presale_voting_percent = PRESALE_BONUS_POLL.balances(addr);
-                var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * presale_voting_percent / 100 / 100;
+
+                // this calculation is about waived pre-sale bonus.
+                // rawVote contains a value [0..1 ether]. 0 means "no bonus" (100% bonus waived). 1 ether means 100% bonus saved.
+                // "PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether" is an effective bonus per cent for particular presale member.
+                var rawVote = PRESALE_BONUS_VOTING.rawVotes(addr);
+                if (rawVote == 0)           rawVote = 1 ether; //special case "no vote" (default value) ==> (1 ether is 100%)
+                else if (rawVote == 1 wei)  rawVote = 0;       //special case "0%" (no bonus)           ==> (0 ether is   0%)
+                else if (rawVote > 1 ether) rawVote = 1 ether; //max bonus is 100% (should not occur)
+
+                var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
                 _mint(presale_balance + presale_bonus, addr);
             }
         }
     }
 
-    function attachToToken(MintableToken tokenAddr)
+    function attachToToken(MintableToken tokenAddr) external
     inState(State.BEFORE_START)
     onlyAdmin
-    external
     {
         TOKEN = tokenAddr;
     }
@@ -172,20 +218,13 @@ contract CrowdsaleMinter {
         isAborted = true;
     }
 
-    //displays current contract state in human readable form
-    function state()  external constant
-    returns (string)
-    {
-        return stateNames[ uint(currentState()) ];
-    }
-
-    function investorsCount() constant external returns(uint) { return investors.length; }
-
     //
     // ======= implementation methods =======
     //
 
-    function _sendRefund() private tokenHoldersOnly {
+    function _sendRefund() private
+    tokenHoldersOnly
+    {
         // load balance to refund plus amount currently sent
         var amount_to_refund = balances[msg.sender] + msg.value;
         // reset balance
@@ -194,8 +233,7 @@ contract CrowdsaleMinter {
         if (!msg.sender.send(amount_to_refund)) throw;
     }
 
-    function _receiveFundsUpTo(uint amount)
-    private
+    function _receiveFundsUpTo(uint amount) private
     notTooSmallAmountOnly
     returns (uint) {
         require (amount > 0);
@@ -215,10 +253,12 @@ contract CrowdsaleMinter {
     }
 
     function _mint(uint amount, address account) private {
-        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account); //ToDo: naming is confuxion. amoint is wei and exchange ratio is token to eth ?
+        MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
-    function currentState() private constant returns (State) {
+    function currentState() private constant
+    returns (State)
+    {
         if (isAborted) {
             return this.balance > 0
                    ? State.REFUND_RUNNING
@@ -268,7 +308,7 @@ contract CrowdsaleMinter {
             || OWNER == 0x0
             || PRIORITY_ADDRESS_LIST == 0x0
             || address(PRESALE_BALANCES) == 0x0
-            || address(PRESALE_BONUS_POLL) == 0x0
+            || address(PRESALE_BONUS_VOTING) == 0x0
             || COMMUNITY_SALE_START == 0
             || PRIORITY_SALE_START == 0
             || PUBLIC_SALE_START == 0

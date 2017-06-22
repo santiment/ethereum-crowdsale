@@ -1,4 +1,4 @@
-pragma solidity ^0.4.8;
+pragma solidity ^0.4.11;
 
 import "./Base.sol";
 
@@ -16,6 +16,13 @@ contract ERC20 {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 
+}
+
+contract ERC20ModuleSupport {
+    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
+    function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
+    function _mintFromDeposit(address owner, uint amount) public;
+    function _burnForDeposit(address owner, uint amount) public returns(bool success);
 }
 
 contract ERC20Impl is ERC20, Base {

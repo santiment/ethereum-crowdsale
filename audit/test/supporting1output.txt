@@ -1,0 +1,279 @@
+Welcome to the Geth JavaScript console!
+
+instance: Geth/v1.6.5-stable-cf87713d/darwin-amd64/go1.8.3
+coinbase: 0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e
+at block: 1890 (Sat, 24 Jun 2017 18:19:41 AEST)
+ datadir: /Users/bok/Projects/SantimentCrowdsale/audit/test/testchain
+ modules: admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0
+
+> 
+true
+> 
+> 
+true
+> 
+> 
+undefined
+> 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+> 
+DATA: alAbi=[{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"contains","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function"}]
+undefined
+> 
+DATA: bsAbi=[{"constant":false,"inputs":[{"name":"account","type":"address"}],"name":"balances","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"type":"function"}]
+undefined
+> 
+DATA: pbvAbi=[{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"rawVotes","outputs":[{"name":"rawVote","type":"uint256"}],"payable":false,"type":"function"}]
+undefined
+> 
+DATA: mtAbi=[{"constant":false,"inputs":[{"name":"amount","type":"uint256"},{"name":"account","type":"address"}],"name":"mint","outputs":[],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"start","outputs":[],"payable":false,"type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"account","type":"address"}],"name":"Mint","type":"event"},{"anonymous":false,"inputs":[],"name":"Start","type":"event"}]
+undefined
+> 
+> 
+undefined
+> 
+RESULT:  # Account                                             EtherBalanceChange                          Token Name
+RESULT: -- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+RESULT:  1 0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e       20.000000000000000000           0.000000000000000000 Account #0 - Miner
+RESULT:  2 0xa11aae29840fbb5c86e6fd4cf809eba183aef433        0.000000000000000000           0.000000000000000000 Account #1 - Contract Owner
+RESULT:  3 0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976        0.000000000000000000           0.000000000000000000 Account #2 - Priority Address
+RESULT:  4 0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0        0.000000000000000000           0.000000000000000000 Account #3 - KYCed
+RESULT:  5 0xa44a08d3f6933c69212114bb66e2df1813651844        0.000000000000000000           0.000000000000000000 Account #4
+RESULT:  6 0xa55a151eb00fded1634d27d1127b4be4627079ea        0.000000000000000000           0.000000000000000000 Account #5
+RESULT:  7 0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9        0.000000000000000000           0.000000000000000000 Account #6
+RESULT:  8 0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec        0.000000000000000000           0.000000000000000000 Account #7
+RESULT:  9 0xa88a05d2b88283ce84c8325760b72a64591279a2        0.000000000000000000           0.000000000000000000 Account #8
+RESULT: -- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+RESULT:                                                                                     0.000000000000000000 Total Token Balances
+RESULT: -- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+RESULT: 
+undefined
+> 
+RESULT: 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+RESULT: Deploy AddressList Contract
+undefined
+> 
+undefined
+> 
+{"abi":[{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"contains","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function"}],"eth":{"_requestManager":{"polls":{},"provider":{},"timeout":null},"accounts":["0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","0xa11aae29840fbb5c86e6fd4cf809eba183aef433","0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976","0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0","0xa44a08d3f6933c69212114bb66e2df1813651844","0xa55a151eb00fded1634d27d1127b4be4627079ea","0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9","0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec","0xa88a05d2b88283ce84c8325760b72a64591279a2","0xa99a0ae3354c06b1459fd441a32a3f71005d7da0","0xaaaa9de1e6c564446ebca0fd102d8bd92093c756","0xabba43e7594e3b76afb157989e93c6621497fd4b","0xacca534c9f62ab495bd986e002ddf0f054caae4f","0xadda9b762a00ff12711113bfdc36958b73d7f915","0xaeea63b5479b50f79583ec49dacdcf86ddeff392","0xaffa4d3a80add8ce4018540e056dacb649589394","0xbbbb34fa53a801b5f298744490a1596438bbbe50"],"blockNumber":1894,"coinbase":"0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","compile":{},"gasPrice":"18000000000","hashrate":39436,"mining":true,"pendingTransactions":[],"protocolVersion":"0x3f","syncing":false}}
+undefined
+> 
+undefined
+> 
+undefined
+> 
+... 
+...... 
+......... 
+............ 
+............ 
+............ 
+............ 
+............ 
+............ 
+......... 
+...... 
+... 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+RESULT: Deploy BalanceStorage Contract
+undefined
+> 
+undefined
+> 
+{"abi":[{"constant":false,"inputs":[{"name":"account","type":"address"}],"name":"balances","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"type":"function"}],"eth":{"_requestManager":{"polls":{"0x9e481f1a87fc3e8fd8dc7ab832a30772":{"data":{"method":"eth_getFilterChanges","params":["0x9e481f1a87fc3e8fd8dc7ab832a30772"]},"id":"0x9e481f1a87fc3e8fd8dc7ab832a30772"}},"provider":{},"timeout":{}},"accounts":["0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","0xa11aae29840fbb5c86e6fd4cf809eba183aef433","0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976","0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0","0xa44a08d3f6933c69212114bb66e2df1813651844","0xa55a151eb00fded1634d27d1127b4be4627079ea","0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9","0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec","0xa88a05d2b88283ce84c8325760b72a64591279a2","0xa99a0ae3354c06b1459fd441a32a3f71005d7da0","0xaaaa9de1e6c564446ebca0fd102d8bd92093c756","0xabba43e7594e3b76afb157989e93c6621497fd4b","0xacca534c9f62ab495bd986e002ddf0f054caae4f","0xadda9b762a00ff12711113bfdc36958b73d7f915","0xaeea63b5479b50f79583ec49dacdcf86ddeff392","0xaffa4d3a80add8ce4018540e056dacb649589394","0xbbbb34fa53a801b5f298744490a1596438bbbe50"],"blockNumber":1894,"coinbase":"0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","compile":{},"gasPrice":"18000000000","hashrate":39436,"mining":true,"pendingTransactions":[{"blockHash":null,"blockNumber":null,"from":"0xa11aae29840fbb5c86e6fd4cf809eba183aef433","gas":6000000,"gasPrice":"18000000000","hash":"0xa98eb51e7a08281447f6114811de90b4603ad987ce27243bf4e077ad649e1754","input":"0x6060604052341561000c57fe5b5b60e38061001b6000396000f300606060405263ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416635dbe47e881146039575bfe5b3415604057fe5b605f73ffffffffffffffffffffffffffffffffffffffff600435166073565b604080519115158252519081900360200190f35b60008173ffffffffffffffffffffffffffffffffffffffff1673a22ab8a9d641ce77e06d98b7d7065d324d3d6976141560ad5750600160b1565b5060005b5b9190505600a165627a7a72305820c2cde65b935208e4cab164864f0d0d2c514bd87dfe4b17f60180624b9eaf680b0029","nonce":38,"r":"0x5f20e7072c6a2ec5de1af9c6fdcd6686fa38ea92608aacceefb2461cc3c5547","s":"0x2100213b293304e8b7f2be63806ebfd58f9333bbf0cb17c9db56fd39ec8481d1","to":null,"transactionIndex":0,"v":"0x1c","value":"0"}],"protocolVersion":"0x3f","syncing":false}}
+undefined
+> 
+undefined
+> 
+undefined
+> 
+... 
+...... 
+......... 
+............ 
+............ 
+............ 
+............ 
+............ 
+............ 
+......... 
+...... 
+... 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+RESULT: Deploy PresaleBonusVoting Contract
+undefined
+> 
+undefined
+> 
+{"abi":[{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"rawVotes","outputs":[{"name":"rawVote","type":"uint256"}],"payable":false,"type":"function"}],"eth":{"_requestManager":{"polls":{"0x490a12c7f7bc89f68d98814b6f91b101":{"data":{"method":"eth_getFilterChanges","params":["0x490a12c7f7bc89f68d98814b6f91b101"]},"id":"0x490a12c7f7bc89f68d98814b6f91b101"},"0x9e481f1a87fc3e8fd8dc7ab832a30772":{"data":{"method":"eth_getFilterChanges","params":["0x9e481f1a87fc3e8fd8dc7ab832a30772"]},"id":"0x9e481f1a87fc3e8fd8dc7ab832a30772"}},"provider":{},"timeout":{}},"accounts":["0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","0xa11aae29840fbb5c86e6fd4cf809eba183aef433","0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976","0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0","0xa44a08d3f6933c69212114bb66e2df1813651844","0xa55a151eb00fded1634d27d1127b4be4627079ea","0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9","0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec","0xa88a05d2b88283ce84c8325760b72a64591279a2","0xa99a0ae3354c06b1459fd441a32a3f71005d7da0","0xaaaa9de1e6c564446ebca0fd102d8bd92093c756","0xabba43e7594e3b76afb157989e93c6621497fd4b","0xacca534c9f62ab495bd986e002ddf0f054caae4f","0xadda9b762a00ff12711113bfdc36958b73d7f915","0xaeea63b5479b50f79583ec49dacdcf86ddeff392","0xaffa4d3a80add8ce4018540e056dacb649589394","0xbbbb34fa53a801b5f298744490a1596438bbbe50"],"blockNumber":1894,"coinbase":"0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","compile":{},"gasPrice":"18000000000","hashrate":39436,"mining":true,"pendingTransactions":[{"blockHash":null,"blockNumber":null,"from":"0xa11aae29840fbb5c86e6fd4cf809eba183aef433","gas":6000000,"gasPrice":"18000000000","hash":"0xa98eb51e7a08281447f6114811de90b4603ad987ce27243bf4e077ad649e1754","input":"0x6060604052341561000c57fe5b5b60e38061001b6000396000f300606060405263ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416635dbe47e881146039575bfe5b3415604057fe5b605f73ffffffffffffffffffffffffffffffffffffffff600435166073565b604080519115158252519081900360200190f35b60008173ffffffffffffffffffffffffffffffffffffffff1673a22ab8a9d641ce77e06d98b7d7065d324d3d6976141560ad5750600160b1565b5060005b5b9190505600a165627a7a72305820c2cde65b935208e4cab164864f0d0d2c514bd87dfe4b17f60180624b9eaf680b0029","nonce":38,"r":"0x5f20e7072c6a2ec5de1af9c6fdcd6686fa38ea92608aacceefb2461cc3c5547","s":"0x2100213b293304e8b7f2be63806ebfd58f9333bbf0cb17c9db56fd39ec8481d1","to":null,"transactionIndex":0,"v":"0x1c","value":"0"},{"blockHash":null,"blockNumber":null,"from":"0xa11aae29840fbb5c86e6fd4cf809eba183aef433","gas":6000000,"gasPrice":"18000000000","hash":"0xd6dfb0d160b016a541200f26a32c9a607762818cce619fef7d30e45ea4524824","input":"0x6060604052341561000c57fe5b5b60ac8061001b6000396000f300606060405263ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166327e235e381146039575bfe5b3415604057fe5b605f73ffffffffffffffffffffffffffffffffffffffff600435166071565b60408051918252519081900360200190f35b670de0b6b3a76400005b9190505600a165627a7a723058200a187a63747e423ce7d74a71b746881c9c20d84ca778280d704259a3438f2d0b0029","nonce":39,"r":"0x3b39b9fa6d9170c009bdefb21c4ce0423b4ddbe8bc3568808da88fcdd7ae42ed","s":"0x4d9710b636b7d725f834eaf14e4d5e7dc00346cd86b02a2373cfc027e3eae276","to":null,"transactionIndex":0,"v":"0x1c","value":"0"}],"protocolVersion":"0x3f","syncing":false}}
+undefined
+> 
+undefined
+> 
+undefined
+> 
+... 
+...... 
+......... 
+............ 
+............ 
+............ 
+............ 
+............ 
+............ 
+......... 
+...... 
+... 
+undefined
+> 
+> 
+undefined
+> 
+undefined
+> 
+RESULT: Deploy MintableToken Contract
+undefined
+> 
+undefined
+> 
+{"abi":[{"constant":false,"inputs":[{"name":"amount","type":"uint256"},{"name":"account","type":"address"}],"name":"mint","outputs":[],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"start","outputs":[],"payable":false,"type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"account","type":"address"}],"name":"Mint","type":"event"},{"anonymous":false,"inputs":[],"name":"Start","type":"event"}],"eth":{"_requestManager":{"polls":{"0x490a12c7f7bc89f68d98814b6f91b101":{"data":{"method":"eth_getFilterChanges","params":["0x490a12c7f7bc89f68d98814b6f91b101"]},"id":"0x490a12c7f7bc89f68d98814b6f91b101"},"0x6dd4ab9a71aa2c310db457610e4c6d05":{"data":{"method":"eth_getFilterChanges","params":["0x6dd4ab9a71aa2c310db457610e4c6d05"]},"id":"0x6dd4ab9a71aa2c310db457610e4c6d05"},"0x9e481f1a87fc3e8fd8dc7ab832a30772":{"data":{"method":"eth_getFilterChanges","params":["0x9e481f1a87fc3e8fd8dc7ab832a30772"]},"id":"0x9e481f1a87fc3e8fd8dc7ab832a30772"}},"provider":{},"timeout":{}},"accounts":["0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","0xa11aae29840fbb5c86e6fd4cf809eba183aef433","0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976","0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0","0xa44a08d3f6933c69212114bb66e2df1813651844","0xa55a151eb00fded1634d27d1127b4be4627079ea","0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9","0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec","0xa88a05d2b88283ce84c8325760b72a64591279a2","0xa99a0ae3354c06b1459fd441a32a3f71005d7da0","0xaaaa9de1e6c564446ebca0fd102d8bd92093c756","0xabba43e7594e3b76afb157989e93c6621497fd4b","0xacca534c9f62ab495bd986e002ddf0f054caae4f","0xadda9b762a00ff12711113bfdc36958b73d7f915","0xaeea63b5479b50f79583ec49dacdcf86ddeff392","0xaffa4d3a80add8ce4018540e056dacb649589394","0xbbbb34fa53a801b5f298744490a1596438bbbe50"],"blockNumber":1894,"coinbase":"0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e","compile":{},"gasPrice":"18000000000","hashrate":39436,"mining":true,"pendingTransactions":[{"blockHash":null,"blockNumber":null,"from":"0xa11aae29840fbb5c86e6fd4cf809eba183aef433","gas":6000000,"gasPrice":"18000000000","hash":"0xa98eb51e7a08281447f6114811de90b4603ad987ce27243bf4e077ad649e1754","input":"0x6060604052341561000c57fe5b5b60e38061001b6000396000f300606060405263ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416635dbe47e881146039575bfe5b3415604057fe5b605f73ffffffffffffffffffffffffffffffffffffffff600435166073565b604080519115158252519081900360200190f35b60008173ffffffffffffffffffffffffffffffffffffffff1673a22ab8a9d641ce77e06d98b7d7065d324d3d6976141560ad5750600160b1565b5060005b5b9190505600a165627a7a72305820c2cde65b935208e4cab164864f0d0d2c514bd87dfe4b17f60180624b9eaf680b0029","nonce":38,"r":"0x5f20e7072c6a2ec5de1af9c6fdcd6686fa38ea92608aacceefb2461cc3c5547","s":"0x2100213b293304e8b7f2be63806ebfd58f9333bbf0cb17c9db56fd39ec8481d1","to":null,"transactionIndex":0,"v":"0x1c","value":"0"},{"blockHash":null,"blockNumber":null,"from":"0xa11aae29840fbb5c86e6fd4cf809eba183aef433","gas":6000000,"gasPrice":"18000000000","hash":"0xd6dfb0d160b016a541200f26a32c9a607762818cce619fef7d30e45ea4524824","input":"0x6060604052341561000c57fe5b5b60ac8061001b6000396000f300606060405263ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166327e235e381146039575bfe5b3415604057fe5b605f73ffffffffffffffffffffffffffffffffffffffff600435166071565b60408051918252519081900360200190f35b670de0b6b3a76400005b9190505600a165627a7a723058200a187a63747e423ce7d74a71b746881c9c20d84ca778280d704259a3438f2d0b0029","nonce":39,"r":"0x3b39b9fa6d9170c009bdefb21c4ce0423b4ddbe8bc3568808da88fcdd7ae42ed","s":"0x4d9710b636b7d725f834eaf14e4d5e7dc00346cd86b02a2373cfc027e3eae276","to":null,"transactionIndex":0,"v":"0x1c","value":"0"},{"blockHash":null,"blockNumber":null,"from":"0xa11aae29840fbb5c86e6fd4cf809eba183aef433","gas":6000000,"gasPrice":"18000000000","hash":"0x27df7bcd01f0245e3cf59dc63e3515bd6798b9d0f83b638db92cb71ea088558e","input":"0x6060604052341561000c57fe5b5b60a58061001b6000396000f300606060405263ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041662e5fc5f81146038575bfe5b3415603f57fe5b605e73ffffffffffffffffffffffffffffffffffffffff600435166070565b60408051918252519081900360200190f35b611ff45b9190505600a165627a7a723058200c1906a64d9dbdd8f3e4d6d856b00d638ff61ab8b3a77694d2507e868aa4196f0029","nonce":40,"r":"0xbce3370d37ce9a354433fcd360429ccbb225eca02d8e3b1dc0128a46a1d5eb18","s":"0x26a48cd5d3d9bd0511617162790a19d175197262d2d30f8d4fbbe253fca3aa90","to":null,"transactionIndex":0,"v":"0x1c","value":"0"}],"protocolVersion":"0x3f","syncing":false}}
+undefined
+> 
+undefined
+> 
+undefined
+> 
+... 
+...... 
+......... 
+............ 
+............ 
+............ 
+............ 
+............ 
+............ 
+......... 
+...... 
+... 
+undefined
+> 
+> 
+> 
+... 
+undefined
+> 
+> 
+DATA: alAddress=0x24ad1371437980d21a8ebf2e46a824b860a6d47c
+DATA: bsAddress=0xfa22627af9c0e35898ccf254ee6989819b2d3eef
+DATA: pbvAddress=0x2ea7f020f95ad692c6eef6614658f289f79549f4
+DATA: mtAddress=0x022bfb654ced61e65f2869d87b5b3247514c606b
+RESULT: alAddress=0x24ad1371437980d21a8ebf2e46a824b860a6d47c gas=6000000 gasUsed=113335 costETH=0.00204003 costUSD=0.7760070117 @ ETH/USD=380.39 gasPrice=18000000000 block=1896 txId=0xa98eb51e7a08281447f6114811de90b4603ad987ce27243bf4e077ad649e1754
+undefined
+> 
+RESULT: bsAddress=0xfa22627af9c0e35898ccf254ee6989819b2d3eef gas=6000000 gasUsed=98583 costETH=0.001774494 costUSD=0.67499977266 @ ETH/USD=380.39 gasPrice=18000000000 block=1896 txId=0xd6dfb0d160b016a541200f26a32c9a607762818cce619fef7d30e45ea4524824
+undefined
+> 
+RESULT: pbvAddress=0x2ea7f020f95ad692c6eef6614658f289f79549f4 gas=6000000 gasUsed=96835 costETH=0.00174303 costUSD=0.6630311817 @ ETH/USD=380.39 gasPrice=18000000000 block=1896 txId=0x27df7bcd01f0245e3cf59dc63e3515bd6798b9d0f83b638db92cb71ea088558e
+undefined
+> 
+RESULT: mtAddress=0x022bfb654ced61e65f2869d87b5b3247514c606b gas=6000000 gasUsed=132379 costETH=0.002382822 costUSD=0.90640166058 @ ETH/USD=380.39 gasPrice=18000000000 block=1896 txId=0x5a4e12b60033a8355d11380bca0c5ade97dca81560b149f71fad20b6b1dfbbc5
+undefined
+> 
+> 
+RESULT:  # Account                                             EtherBalanceChange                          Token Name
+RESULT: -- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+RESULT:  1 0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e       30.007940376000000000           0.000000000000000000 Account #0 - Miner
+RESULT:  2 0xa11aae29840fbb5c86e6fd4cf809eba183aef433       -0.007940376000000000           0.000000000000000000 Account #1 - Contract Owner
+RESULT:  3 0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976        0.000000000000000000           0.000000000000000000 Account #2 - Priority Address
+RESULT:  4 0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0        0.000000000000000000           0.000000000000000000 Account #3 - KYCed
+RESULT:  5 0xa44a08d3f6933c69212114bb66e2df1813651844        0.000000000000000000           0.000000000000000000 Account #4
+RESULT:  6 0xa55a151eb00fded1634d27d1127b4be4627079ea        0.000000000000000000           0.000000000000000000 Account #5
+RESULT:  7 0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9        0.000000000000000000           0.000000000000000000 Account #6
+RESULT:  8 0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec        0.000000000000000000           0.000000000000000000 Account #7
+RESULT:  9 0xa88a05d2b88283ce84c8325760b72a64591279a2        0.000000000000000000           0.000000000000000000 Account #8
+RESULT: 10 0x24ad1371437980d21a8ebf2e46a824b860a6d47c        0.000000000000000000           0.000000000000000000 AddressList
+RESULT: 11 0xfa22627af9c0e35898ccf254ee6989819b2d3eef        0.000000000000000000           0.000000000000000000 BalanceStorage
+RESULT: 12 0x2ea7f020f95ad692c6eef6614658f289f79549f4        0.000000000000000000           0.000000000000000000 PresaleBonusVoting
+RESULT: 13 0x022bfb654ced61e65f2869d87b5b3247514c606b        0.000000000000000000           0.000000000000000000 MintableToken
+RESULT: -- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+RESULT:                                                                                     0.000000000000000000 Total Token Balances
+RESULT: -- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+RESULT: 
+undefined
+> 
+> 
+RESULT: PASS Deploy AddressList Contract
+1
+> 
+RESULT: PASS Deploy BalanceStorage Contract
+1
+> 
+RESULT: PASS Deploy PresaleBonusVoting Contract
+1
+> 
+RESULT: PASS Deploy MintableToken Contract
+1
+> 
+> 
+ReferenceError: 'printalContractDetails' is not defined
+    at <anonymous>:1:1
+
+> 
+RESULT: 
+undefined
+> 
+> 
+DATA: lastBlockNumber=1896;
+undefined
+> 
+DATA: COMMUNITY_SALE_START=1901;
+undefined
+> 
+DATA: PRIORITY_SALE_START=1906;
+undefined
+> 
+DATA: PUBLIC_SALE_START=1911;
+undefined
+> 
+DATA: PUBLIC_SALE_END=1916;
+undefined
+> 
+DATA: WITHDRAWAL_END=1921;
+undefined
+> 
+> 

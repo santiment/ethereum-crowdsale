@@ -1,9 +1,4 @@
-pragma solidity ^0.4.8;
-
-contract BalanceStore {
-    mapping (address => uint256) balances;
-    function balanceOf(address _owner) constant returns (uint256 balance);
-}
+pragma solidity ^0.4.11;
 
 contract MintableToken {
     function mint(uint amount, address account);
@@ -48,57 +43,5 @@ contract Base {
     function assert(bool expr) { if (!expr) throw; }
 
     event loga(address a);
-}
-
-
-contract SubscriptionBase {
-    enum Status {OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
-
-    struct Subscription {
-        address transferFrom;
-        address transferTo;
-        uint pricePerHour;
-        uint initialXrate;
-        uint16 xrateProviderId;
-        uint paidUntil;
-        uint chargePeriod;
-        uint depositAmount;
-
-        uint startOn;
-        uint expireOn;
-        uint execCounter;
-        bytes descriptor;
-        uint onHoldSince;
-    }
-
-    struct Deposit {
-        uint value;
-        address owner;
-        bytes descriptor;
-    }
-
-    //ToDo: change arg order
-    event NewSubscription(address customer, address service, uint offerId, uint subId);
-    event NewDeposit(uint depositId, uint value, address sender);
-    event NewXRateProvider(address addr, uint16 xRateProviderId);
-    event DepositClosed(uint depositId);
-}
-
-contract PaymentListener is SubscriptionBase {
-
-    function onPayment(address _from, uint _value, bytes _paymentData) returns (bool);
-    function onSubExecuted(uint subId) returns (bool);
-    function onSubNew(uint newSubId, uint offerId) returns (bool);
-    function onSubCanceled(uint subId, address caller) returns (bool);
-    function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool);
-
-}
-
-contract Named {
-    function name() public constant returns (string);
-}
-
-contract XRateProvider {
-    function getRate() returns (uint);
-    function getCode() returns (string);
+    event logs(string s);
 }

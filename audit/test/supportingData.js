@@ -1,0 +1,14 @@
+alAbi=[{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"contains","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function"}]
+bsAbi=[{"constant":false,"inputs":[{"name":"account","type":"address"}],"name":"balances","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"type":"function"}]
+pbvAbi=[{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"rawVotes","outputs":[{"name":"rawVote","type":"uint256"}],"payable":false,"type":"function"}]
+mtAbi=[{"constant":false,"inputs":[{"name":"amount","type":"uint256"},{"name":"account","type":"address"}],"name":"mint","outputs":[],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"start","outputs":[],"payable":false,"type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"account","type":"address"}],"name":"Mint","type":"event"},{"anonymous":false,"inputs":[],"name":"Start","type":"event"}]
+alAddress=0x24ad1371437980d21a8ebf2e46a824b860a6d47c
+bsAddress=0xfa22627af9c0e35898ccf254ee6989819b2d3eef
+pbvAddress=0x2ea7f020f95ad692c6eef6614658f289f79549f4
+mtAddress=0x022bfb654ced61e65f2869d87b5b3247514c606b
+lastBlockNumber=1896;
+COMMUNITY_SALE_START=1901;
+PRIORITY_SALE_START=1906;
+PUBLIC_SALE_START=1911;
+PUBLIC_SALE_END=1916;
+WITHDRAWAL_END=1921;

@@ -1,13 +1,13 @@
-pragma solidity ^0.4.8;
+pragma solidity ^0.4.11;
 
-import "./SNT.sol";
+import "./SAN.sol";
 
-contract TestableProvider is PaymentListener, Base {
-    SNT public snt;
+contract TestableProvider is PaymentListener, SubscriptionBase, Base {
+    SubscriptionModule public sub;
     address public owner;
 
-    function TestableProvider(SNT _snt, address _owner) public {
-        snt = _snt;
+    function TestableProvider(SubscriptionModule _sub, address _owner) public {
+        sub = _sub;
         owner = _owner>0 ? _owner : tx.origin;
     }
 
@@ -15,8 +15,8 @@ contract TestableProvider is PaymentListener, Base {
         uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _validUntil,
         uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor
     )  returns (uint subId) {
-        subId = SNT(snt).createSubscriptionOffer(_price, _xrateProviderId, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
-        //if (uint(snt)>0) subId = snt.createOffer2(_price);
+        subId = sub.createSubscriptionOffer(_price, _xrateProviderId, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
+        //if (uint(san)>0) subId = san.createOffer2(_price);
         NewOffer(this,subId);
     }
 
@@ -31,7 +31,7 @@ contract TestableProvider is PaymentListener, Base {
     }
 
     function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool) {
-        var (transferFrom, transferTo, pricePerHour, chargePeriod, startOn, descriptor) = SNT(snt).subscriptionDetails(subId);
+        var (transferFrom, transferTo, pricePerHour, chargePeriod, startOn, descriptor) = sub.subscriptionDetails(subId);
         assert (transferFrom == caller); //accept hold/unhold requests only from subscription owner.
 
         _assertSubStatus(subId);
@@ -40,7 +40,7 @@ contract TestableProvider is PaymentListener, Base {
     }
 
     function _assertSubStatus(uint subId) internal {
-        var (depositAmount, expireOn, execCounter, paidUntil, onHoldSince) = SNT(snt).subscriptionStatus(subId);
+        var (depositAmount, expireOn, execCounter, paidUntil, onHoldSince) = sub.subscriptionStatus(subId);
         //ToDo: improve tests for test this condition
         //assert (paidUntil >= now); //accept hold/unhold requests only from subscription without debts.
     }
@@ -52,9 +52,11 @@ contract TestableProvider is PaymentListener, Base {
 
     function onSubCanceled(uint subId, address caller) returns (bool) {
         //accept everything;
+        SubCanceled(subId, caller);
         return true;
     }
 
     event NewOffer(address provider, uint offerId);
+    event SubCanceled(uint subId, address caller);
 
 }
