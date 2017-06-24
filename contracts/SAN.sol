@@ -24,6 +24,12 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         beneficiary = admin = msg.sender;
     }
 
+    // ------------------------------------------------------------------------
+    // Don't accept ethers
+    // ------------------------------------------------------------------------
+    function () {
+        throw;
+    }
 
     //======== SECTION Configuration: Admin only ========
     //

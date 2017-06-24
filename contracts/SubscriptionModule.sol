@@ -133,6 +133,13 @@ contract SubscriptionModuleImpl is SubscriptionModule  {
         xrateProviders.push(XRateProvider(this));
     }
 
+    // ------------------------------------------------------------------------
+    // Don't accept ethers
+    // ------------------------------------------------------------------------
+    function () {
+        throw;
+    }
+    
     function attachToken(address token) public {
         assert(address(san) == 0); //only in new deployed state
         san = ERC20ModuleSupport(token);
