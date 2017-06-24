@@ -79,6 +79,7 @@ contract CrowdsaleMinter {
 
     //constructor
     function CrowdsaleMinter() {
+        //check configuration if something in setup is looking weird
         if (
             TOKEN_PER_ETH == 0
             || MIN_ACCEPTED_AMOUNT_FINNEY < 1
@@ -102,7 +103,7 @@ contract CrowdsaleMinter {
             || PUBLIC_SALE_END >= WITHDRAWAL_END
             || COMMUNITY_PLUS_PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
             || MIN_TOTAL_AMOUNT_TO_RECEIVE > MAX_TOTAL_AMOUNT_TO_RECEIVE )
-                throw;
+        throw;
     }
 
     /* ====== configuration END ====== */
