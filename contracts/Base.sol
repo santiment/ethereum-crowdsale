@@ -1,10 +1,5 @@
 pragma solidity ^0.4.11;
 
-contract MintableToken {
-    function mint(uint amount, address account);
-    function start();
-}
-
 contract Base {
 
     function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }
@@ -26,6 +21,13 @@ contract Base {
 
 }
 
+contract MintableToken {
+    //target token contract is responsible to accept only authorized mint calls.
+    function mint(uint amount, address account);
+
+    //start the token on minting finished,
+    function start();
+}
 
 contract Owned is Base {
 
