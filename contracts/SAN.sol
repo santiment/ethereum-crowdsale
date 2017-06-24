@@ -14,24 +14,42 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
     address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
     address public beneficiary;
 
-    //function subscriptionModule() constant returns(address) { return SUBSCRIPTION_MODULE; }
+    uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
+    uint public totalOnDeposit;
+    uint public totalInCirculation;
 
     function SAN(){
         beneficiary = admin = msg.sender;
     }
 
+
+    //======== SECTION Configuration: Admin only ========
+    //
     function setBeneficiary(address newBeneficiary) external only(admin) {
         beneficiary = newBeneficiary;
     }
 
-    function attachSubscriptionModule(SubscriptionModule subModule) public {
+    function attachSubscriptionModule(SubscriptionModule subModule) external only(admin) {
         SUBSCRIPTION_MODULE = subModule;
         subModule.attachToken(this);
     }
 
-    //==== Subscription, Deposit and Payment Support =====
+    function setPlatformFeePer10000(uint newFee) external only(admin) {
+        require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
+        PLATFORM_FEE_PER_10000 = newFee;
+    }
 
-    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public
+
+    //======== Interface XRateProvider: a trivial exchange rate provider. Rate is 1:1 and SAN symbol as the code
+    //
+    function getRate() returns(uint)          { return 1;      }
+    function getCode() public returns(string) { return symbol; }
+
+
+    //==== Interface ERC20ModuleSupport: Subscription, Deposit and Payment Support =====
+    //
+    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender)
+    public
     onlyTrusted
     returns(bool success) {
         success = _from != msg_sender && allowed[_from][msg_sender] >= _value;
@@ -68,16 +86,18 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         return _value * PLATFORM_FEE_PER_10000 / 10000;
     }
 
-    function _mintFromDeposit(address owner, uint amount) public
+    function _mintFromDeposit(address owner, uint amount)
+    public
     onlyTrusted {
         balances[owner] += amount;
         totalOnDeposit -= amount;
         totalInCirculation += amount;
     }
 
-    function _burnForDeposit(address owner, uint amount) public
+    function _burnForDeposit(address owner, uint amount)
+    public
     onlyTrusted
-    returns (bool success){
+    returns (bool success) {
         if (balances[owner] >= amount) {
             balances[owner] -= amount;
             totalOnDeposit += amount;
@@ -85,20 +105,6 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
             return true;
         } else { return false; }
     }
-
-    uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
-    uint public totalOnDeposit;
-    uint public totalInCirculation;
-
-    function setPlatformFeePer10000(uint newFee) external only(admin) {
-        require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
-        PLATFORM_FEE_PER_10000 = newFee;
-    }
-
-    //ToDo: moveThis!
-    //implement this token as trivial 1:1 exchange rate provider.
-    function getRate() returns(uint)          { return 1;      }
-    function getCode() public returns(string) { return symbol; }
 
     //========= Crowdsale Only ===============
     function mint(uint amount, address account)
@@ -110,6 +116,7 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
     }
 
     function start() isNotRunningOnly only(admin) {
+        totalInCirculation = totalSupply;
         isRunning = true;
     }
 
