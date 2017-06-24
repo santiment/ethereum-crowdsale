@@ -8,7 +8,7 @@ contract TestableSAN is SAN {
         for(uint i=0; i<accounts.length; ++i) {
             __setBalance(accounts[i], amounts[i]);
         }
-        isRunning = true;
+        isStarted = true;
     }
 
     function __setBalance(address beneficiary, uint amount) {

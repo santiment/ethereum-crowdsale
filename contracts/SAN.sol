@@ -109,15 +109,15 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
     //========= Crowdsale Only ===============
     function mint(uint amount, address account)
     onlyCrowdsaleMinter
-    isNotRunningOnly
+    isNotStartedOnly
     {
         totalSupply += amount;
         balances[account]+=amount;
     }
 
-    function start() isNotRunningOnly only(admin) {
+    function start() isNotStartedOnly only(admin) {
         totalInCirculation = totalSupply;
-        isRunning = true;
+        isStarted = true;
     }
 
     modifier onlyCrowdsaleMinter() {
@@ -127,6 +127,11 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     modifier onlyTrusted() {
         if (msg.sender != SUBSCRIPTION_MODULE) throw;
+        _;
+    }
+
+    modifier isNotStartedOnly() {
+        if (isStarted) throw;
         _;
     }
 
