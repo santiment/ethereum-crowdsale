@@ -11,7 +11,8 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     address CROWDSALE_MINTER = 0x00000000;
     address public SUBSCRIPTION_MODULE = 0x00000000;
-    address public admin;
+    address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
+    address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before he becomes admin.
     address public beneficiary;
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0.01%
@@ -29,6 +30,19 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
     ///@notice set beneficiary - the account receiving platform fees.
     function setBeneficiary(address newBeneficiary) external only(admin) {
         beneficiary = newBeneficiary;
+    }
+
+    ///@notice 1st of 2 step to change admin
+    ///@dev two step admin change protocol. 1st step: old admin propose the new one
+    function prepareAdminChange(address newAdmin) external only(admin) {
+        nextAdmin = newAdmin;
+    }
+
+    ///@notice 1st of 2 step to change admin
+    ///@dev two step admin change protocol. 2st step: new admin accepts new role.
+    function confirmAdminChange() external only(nextAdmin) {
+        admin = nextAdmin;
+        delete nextAdmin;
     }
 
     ///@notice attach module managing subscriptions. if subModule==0x0, then disables subscription functionality for this token.
