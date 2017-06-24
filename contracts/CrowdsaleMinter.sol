@@ -78,7 +78,32 @@ contract CrowdsaleMinter {
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
 
     //constructor
-    function CrowdsaleMinter() validSetupOnly() {}
+    function CrowdsaleMinter() {
+        if (
+            TOKEN_PER_ETH == 0
+            || MIN_ACCEPTED_AMOUNT_FINNEY < 1
+            || OWNER == 0x0
+            || address(COMMUNITY_ALLOWANCE_LIST) == 0x0
+            || address(PRIORITY_ADDRESS_LIST) == 0x0
+            || address(PRESALE_BONUS_VOTING) == 0x0
+            || address(PRESALE_BALANCES) == 0x0
+            || COMMUNITY_SALE_START == 0
+            || PRIORITY_SALE_START == 0
+            || PUBLIC_SALE_START == 0
+            || PUBLIC_SALE_END == 0
+            || WITHDRAWAL_END == 0
+            || MIN_TOTAL_AMOUNT_TO_RECEIVE == 0
+            || MAX_TOTAL_AMOUNT_TO_RECEIVE == 0
+            || COMMUNITY_PLUS_PRIORITY_SALE_CAP == 0
+            || COMMUNITY_SALE_START <= block.number
+            || COMMUNITY_SALE_START >= PRIORITY_SALE_START
+            || PRIORITY_SALE_START >= PUBLIC_SALE_START
+            || PUBLIC_SALE_START >= PUBLIC_SALE_END
+            || PUBLIC_SALE_END >= WITHDRAWAL_END
+            || COMMUNITY_PLUS_PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
+            || MIN_TOTAL_AMOUNT_TO_RECEIVE > MAX_TOTAL_AMOUNT_TO_RECEIVE )
+                throw;
+    }
 
     /* ====== configuration END ====== */
 
@@ -297,36 +322,6 @@ contract CrowdsaleMinter {
         if (currentState() >= state) throw;
         _;
     }
-
-    //fails if something in setup is looking weird
-    modifier validSetupOnly() {
-        if (
-            TOKEN_PER_ETH == 0
-            || MIN_ACCEPTED_AMOUNT_FINNEY < 1
-            || OWNER == 0x0
-            || address(COMMUNITY_ALLOWANCE_LIST) == 0x0
-            || address(PRIORITY_ADDRESS_LIST) == 0x0
-            || address(PRESALE_BONUS_VOTING) == 0x0
-            || address(PRESALE_BALANCES) == 0x0
-            || COMMUNITY_SALE_START == 0
-            || PRIORITY_SALE_START == 0
-            || PUBLIC_SALE_START == 0
-            || PUBLIC_SALE_END == 0
-            || WITHDRAWAL_END == 0
-            || MIN_TOTAL_AMOUNT_TO_RECEIVE == 0
-            || MAX_TOTAL_AMOUNT_TO_RECEIVE == 0
-            || COMMUNITY_PLUS_PRIORITY_SALE_CAP == 0
-            || COMMUNITY_SALE_START <= block.number
-            || COMMUNITY_SALE_START >= PRIORITY_SALE_START
-            || PRIORITY_SALE_START >= PUBLIC_SALE_START
-            || PUBLIC_SALE_START >= PUBLIC_SALE_END
-            || PUBLIC_SALE_END >= WITHDRAWAL_END
-            || COMMUNITY_PLUS_PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
-            || MIN_TOTAL_AMOUNT_TO_RECEIVE > MAX_TOTAL_AMOUNT_TO_RECEIVE )
-                throw;
-        _;
-    }
-
 
     //accepts calls from Admin only
     modifier onlyAdmin(){
