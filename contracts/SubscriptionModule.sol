@@ -119,9 +119,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
 }
 
-contract SubscriptionModuleImpl is SubscriptionModule  {
-    address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
-    address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before becomes admin.
+contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
     uint public totalOnDeposit;
@@ -129,7 +127,7 @@ contract SubscriptionModuleImpl is SubscriptionModule  {
     ERC20ModuleSupport san;
 
     function SubscriptionModuleImpl() {
-        admin = msg.sender;
+        owner = msg.sender;
         xrateProviders.push(XRateProvider(this));
     }
 
@@ -139,31 +137,22 @@ contract SubscriptionModuleImpl is SubscriptionModule  {
     function () {
         throw;
     }
-    
+
     function attachToken(address token) public {
         assert(address(san) == 0); //only in new deployed state
         san = ERC20ModuleSupport(token);
     }
 
-    function setPlatformFeePer10000(uint newFee) external only(admin) {
+    function setPlatformFeePer10000(uint newFee) external only(owner) {
         require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
         PLATFORM_FEE_PER_10000 = newFee;
     }
 
-    function prepareAdminChange(address newAdmin) external only(admin) {
-        nextAdmin = newAdmin;
-    }
-
-    function confirmAdminChange() external only(nextAdmin) {
-        admin = nextAdmin;
-        delete nextAdmin;
-    }
-
-    function enableServiceProvider(PaymentListener addr) external only(admin) {
+    function enableServiceProvider(PaymentListener addr) external only(owner) {
         providerRegistry[addr] = true;
     }
 
-    function disableServiceProvider(PaymentListener addr) external only(admin) {
+    function disableServiceProvider(PaymentListener addr) external only(owner) {
         delete providerRegistry[addr];
     }
 
@@ -190,7 +179,7 @@ contract SubscriptionModuleImpl is SubscriptionModule  {
         return (sub.depositAmount, sub.expireOn, sub.execCounter, sub.paidUntil, sub.onHoldSince);
     }
 
-    function registerXRateProvider(XRateProvider addr) external only(admin) returns (uint16 xrateProviderId) {
+    function registerXRateProvider(XRateProvider addr) external only(owner) returns (uint16 xrateProviderId) {
         xrateProviderId = uint16(xrateProviders.length);
         xrateProviders.push(addr);
         NewXRateProvider(addr, xrateProviderId);
@@ -219,7 +208,7 @@ contract SubscriptionModuleImpl is SubscriptionModule  {
     function executeSubscription(uint subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
-        assert (msg.sender == sub.transferFrom || msg.sender == sub.transferTo || msg.sender == admin);
+        assert (msg.sender == sub.transferFrom || msg.sender == sub.transferTo || msg.sender == owner);
         if (_currentStatus(sub)==Status.CHARGEABLE) {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
@@ -329,7 +318,7 @@ contract SubscriptionModuleImpl is SubscriptionModule  {
 
     function cancelSubscription(uint subId, uint gasReserve) public {
         Subscription storage sub = subscriptions[subId];
-        assert (sub.transferFrom == msg.sender || admin == msg.sender); //only subscription owner or admin is allowed to cancel it
+        assert (sub.transferFrom == msg.sender || owner == msg.sender); //only subscription owner or owner is allowed to cancel it
         assert (_isNotOffer(sub));
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
