@@ -18,8 +18,12 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     uint public totalInCirculation;
 
     ///@dev constructor
-    function SAN(){
+    function SAN() {
         beneficiary = owner = msg.sender;
+        //configuration sanity check.
+        if (  CROWDSALE_MINTER == 0x0
+            || SUBSCRIPTION_MODULE == 0x0)
+            throw;
     }
 
     // ------------------------------------------------------------------------
@@ -152,7 +156,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
         totalInCirculation = totalSupply;
         isStarted = true;
     }
-    
+
     //========= SECTION: Modifier ===============
 
     modifier onlyCrowdsaleMinter() {
