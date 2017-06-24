@@ -36,7 +36,7 @@ contract PresaleBonusVoting {
 }
 
 contract MintableToken {
-    //target token contract is responsible to accept only authorised mint calls.
+    //target token contract is responsible to accept only authorized mint calls.
     function mint(uint amount, address account);
 
     //start the token on minting finished,
