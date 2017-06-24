@@ -10,6 +10,16 @@ MODE=${1:-test}
 GETHATTACHPOINT=`grep ^IPCFILE= settings.txt | sed "s/^.*=//"`
 PASSWORD=`grep ^PASSWORD= settings.txt | sed "s/^.*=//"`
 
+BASESOL=`grep ^BASESOL= settings.txt | sed "s/^.*=//"`
+BASETEMPSOL=`grep ^BASETEMPSOL= settings.txt | sed "s/^.*=//"`
+ERC20SOL=`grep ^ERC20SOL= settings.txt | sed "s/^.*=//"`
+ERC20TEMPSOL=`grep ^ERC20TEMPSOL= settings.txt | sed "s/^.*=//"`
+SUBSCRIPTIONMODULESOL=`grep ^SUBSCRIPTIONMODULESOL= settings.txt | sed "s/^.*=//"`
+SUBSCRIPTIONMODULETEMPSOL=`grep ^SUBSCRIPTIONMODULETEMPSOL= settings.txt | sed "s/^.*=//"`
+SANSOL=`grep ^SANSOL= settings.txt | sed "s/^.*=//"`
+SANTEMPSOL=`grep ^SANTEMPSOL= settings.txt | sed "s/^.*=//"`
+SANJS=`grep ^SANJS= settings.txt | sed "s/^.*=//"`
+
 SUPPORTINGSOL=`grep ^SUPPORTINGSOL= settings.txt | sed "s/^.*=//"`
 SUPPORTINGTEMPSOL=`grep ^SUPPORTINGTEMPSOL= settings.txt | sed "s/^.*=//"`
 SUPPORTINGJS=`grep ^SUPPORTINGJS= settings.txt | sed "s/^.*=//"`
@@ -41,77 +51,103 @@ STARTTIME_S=`date -r $STARTTIME -u`
 ENDTIME=`echo "$CURRENTTIME+60*3" | bc`
 ENDTIME_S=`date -r $ENDTIME -u`
 
-printf "MODE                   = '$MODE'\n"
-printf "GETHATTACHPOINT        = '$GETHATTACHPOINT'\n"
-printf "PASSWORD               = '$PASSWORD'\n"
-printf "SUPPORTINGSOL          = '$SUPPORTINGSOL'\n"
-printf "SUPPORTINGTEMPSOL      = '$SUPPORTINGTEMPSOL'\n"
-printf "SUPPORTINGJS           = '$SUPPORTINGJS'\n"
-printf "CROWDSALEMINTERSOL     = '$CROWDSALEMINTERSOL'\n"
-printf "CROWDSALEMINTERTEMPSOL = '$CROWDSALEMINTERTEMPSOL'\n"
-printf "CROWDSALEMINTERJS      = '$CROWDSALEMINTERJS'\n"
-printf "SUPPORTINGDATAJS       = '$SUPPORTINGDATAJS'\n"
-printf "DEPLOYMENTDATA         = '$DEPLOYMENTDATA'\n"
-printf "INCLUDEJS              = '$INCLUDEJS'\n"
-printf "SUPPORTING1OUTPUT      = '$SUPPORTING1OUTPUT'\n"
-printf "SUPPORTING1RESULTS     = '$SUPPORTING1RESULTS'\n"
-printf "TEST1OUTPUT            = '$TEST1OUTPUT'\n"
-printf "TEST1RESULTS           = '$TEST1RESULTS'\n"
-printf "CURRENTTIME            = '$CURRENTTIME' '$CURRENTTIMES'\n"
-printf "STARTTIME              = '$STARTTIME' '$STARTTIME_S'\n"
-printf "ENDTIME                = '$ENDTIME' '$ENDTIME_S'\n"
+printf "MODE                      = '$MODE'\n"
+printf "GETHATTACHPOINT           = '$GETHATTACHPOINT'\n"
+printf "PASSWORD                  = '$PASSWORD'\n"
 
-# Make copy of SOL file and modify start and end times ---
+printf "BASESOL                   = '$BASESOL'\n"
+printf "BASETEMPSOL               = '$BASETEMPSOL'\n"
+printf "ERC20SOL                  = '$ERC20SOL'\n"
+printf "ERC20TEMPSOL              = '$ERC20TEMPSOL'\n"
+printf "SUBSCRIPTIONMODULESOL     = '$SUBSCRIPTIONMODULESOL'\n"
+printf "SUBSCRIPTIONMODULETEMPSOL = '$SUBSCRIPTIONMODULETEMPSOL'\n"
+printf "SANSOL                    = '$SANSOL'\n"
+printf "SANTEMPSOL                = '$SANTEMPSOL'\n"
+printf "SANJS                     = '$SANJS'\n"
+
+printf "SUPPORTINGSOL             = '$SUPPORTINGSOL'\n"
+printf "SUPPORTINGTEMPSOL         = '$SUPPORTINGTEMPSOL'\n"
+printf "SUPPORTINGJS              = '$SUPPORTINGJS'\n"
+
+printf "CROWDSALEMINTERSOL        = '$CROWDSALEMINTERSOL'\n"
+printf "CROWDSALEMINTERTEMPSOL    = '$CROWDSALEMINTERTEMPSOL'\n"
+printf "CROWDSALEMINTERJS         = '$CROWDSALEMINTERJS'\n"
+
+printf "SUPPORTINGDATAJS          = '$SUPPORTINGDATAJS'\n"
+printf "DEPLOYMENTDATA            = '$DEPLOYMENTDATA'\n"
+printf "INCLUDEJS                 = '$INCLUDEJS'\n"
+printf "SUPPORTING1OUTPUT         = '$SUPPORTING1OUTPUT'\n"
+printf "SUPPORTING1RESULTS        = '$SUPPORTING1RESULTS'\n"
+printf "TEST1OUTPUT               = '$TEST1OUTPUT'\n"
+printf "TEST1RESULTS              = '$TEST1RESULTS'\n"
+printf "CURRENTTIME               = '$CURRENTTIME' '$CURRENTTIMES'\n"
+printf "STARTTIME                 = '$STARTTIME' '$STARTTIME_S'\n"
+printf "ENDTIME                   = '$ENDTIME' '$ENDTIME_S'\n"
+
+# ------------------------------------------------------------------------------
+# SAN and Supporting
+# ------------------------------------------------------------------------------
+
+# Make copy of SOL files ---
+`cp $BASESOL $BASETEMPSOL`
+`cp $ERC20SOL $ERC20TEMPSOL`
+`cp $SUBSCRIPTIONMODULESOL $SUBSCRIPTIONMODULETEMPSOL`
+`cp $SANSOL $SANTEMPSOL`
 `cp $SUPPORTINGSOL $SUPPORTINGTEMPSOL`
 
 DIFFS1=`diff $SUPPORTINGSOL $SUPPORTINGTEMPSOL`
 echo "--- Differences $SUPPORTINGSOL $SUPPORTINGTEMPSOL ---"
 echo "$DIFFS1"
 
+echo "var sanOutput=`solc --optimize --combined-json abi,bin,interface $SANTEMPSOL`;" > $SANJS
 echo "var supportingOutput=`solc --optimize --combined-json abi,bin,interface $SUPPORTINGTEMPSOL`;" > $SUPPORTINGJS
 
 geth --verbosity 3 attach $GETHATTACHPOINT << EOFSUPPORTING | tee $SUPPORTING1OUTPUT
+loadScript("$SANJS");
 loadScript("$SUPPORTINGJS");
-
 loadScript("functions.js");
 
-var alAbi = JSON.parse(supportingOutput.contracts["$SUPPORTINGTEMPSOL:AddressList"].abi);
-var alBin = "0x" + supportingOutput.contracts["$SUPPORTINGTEMPSOL:AddressList"].bin;
+var sanAbi = JSON.parse(sanOutput.contracts["$SANTEMPSOL:SAN"].abi);
+var sanBin = "0x" + sanOutput.contracts["$SANTEMPSOL:SAN"].bin;
 
 var bsAbi = JSON.parse(supportingOutput.contracts["$SUPPORTINGTEMPSOL:BalanceStorage"].abi);
 var bsBin = "0x" + supportingOutput.contracts["$SUPPORTINGTEMPSOL:BalanceStorage"].bin;
 
+var alAbi = JSON.parse(supportingOutput.contracts["$SUPPORTINGTEMPSOL:AddressList"].abi);
+var alBin = "0x" + supportingOutput.contracts["$SUPPORTINGTEMPSOL:AddressList"].bin;
+
+var mmwlAbi = JSON.parse(supportingOutput.contracts["$SUPPORTINGTEMPSOL:MinMaxWhiteList"].abi);
+var mmwlBin = "0x" + supportingOutput.contracts["$SUPPORTINGTEMPSOL:MinMaxWhiteList"].bin;
+
 var pbvAbi = JSON.parse(supportingOutput.contracts["$SUPPORTINGTEMPSOL:PresaleBonusVoting"].abi);
 var pbvBin = "0x" + supportingOutput.contracts["$SUPPORTINGTEMPSOL:PresaleBonusVoting"].bin;
 
-var mtAbi = JSON.parse(supportingOutput.contracts["$SUPPORTINGTEMPSOL:MintableToken"].abi);
-var mtBin = "0x" + supportingOutput.contracts["$SUPPORTINGTEMPSOL:MintableToken"].bin;
-
-console.log("DATA: alAbi=" + JSON.stringify(alAbi));
+console.log("DATA: sanAbi=" + JSON.stringify(sanAbi));
 console.log("DATA: bsAbi=" + JSON.stringify(bsAbi));
+console.log("DATA: alAbi=" + JSON.stringify(alAbi));
+console.log("DATA: mmwlAbi=" + JSON.stringify(mmwlAbi));
 console.log("DATA: pbvAbi=" + JSON.stringify(pbvAbi));
-console.log("DATA: mtAbi=" + JSON.stringify(mtAbi));
 
 unlockAccounts("$PASSWORD");
 printBalances();
 console.log("RESULT: ");
 
 // -----------------------------------------------------------------------------
-var alMessage = "Deploy AddressList Contract";
-console.log("RESULT: " + alMessage);
-var alContract = web3.eth.contract(alAbi);
-console.log(JSON.stringify(alContract));
-var alTx = null;
-var alAddress = null;
-var al = alContract.new({from: contractOwnerAccount, data: alBin, gas: 6000000},
+var sanMessage = "Deploy SAN Contract";
+console.log("RESULT: " + sanMessage);
+var sanContract = web3.eth.contract(sanAbi);
+console.log(JSON.stringify(sanContract));
+var sanTx = null;
+var sanAddress = null;
+var san = sanContract.new({from: contractOwnerAccount, data: sanBin, gas: 6000000},
   function(e, contract) {
     if (!e) {
       if (!contract.address) {
-        alTx = contract.transactionHash;
+        sanTx = contract.transactionHash;
       } else {
-        alAddress = contract.address;
-        addAccount(alAddress, "AddressList");
-        console.log("DATA: alAddress=" + alAddress);
+        sanAddress = contract.address;
+        addAccount(sanAddress, "SAN");
+        console.log("DATA: sanAddress=" + sanAddress);
       }
     }
   }
@@ -139,6 +175,48 @@ var bs = bsContract.new({from: contractOwnerAccount, data: bsBin, gas: 6000000},
 );
 
 // -----------------------------------------------------------------------------
+var alMessage = "Deploy AddressList Contract";
+console.log("RESULT: " + alMessage);
+var alContract = web3.eth.contract(alAbi);
+console.log(JSON.stringify(alContract));
+var alTx = null;
+var alAddress = null;
+var al = alContract.new({from: contractOwnerAccount, data: alBin, gas: 6000000},
+  function(e, contract) {
+    if (!e) {
+      if (!contract.address) {
+        alTx = contract.transactionHash;
+      } else {
+        alAddress = contract.address;
+        addAccount(alAddress, "AddressList");
+        console.log("DATA: alAddress=" + alAddress);
+      }
+    }
+  }
+);
+
+// -----------------------------------------------------------------------------
+var mmwlMessage = "Deploy MinMaxWhiteList Contract";
+console.log("RESULT: " + mmwlMessage);
+var mmwlContract = web3.eth.contract(mmwlAbi);
+console.log(JSON.stringify(mmwlContract));
+var mmwlTx = null;
+var mmwlAddress = null;
+var mmwl = mmwlContract.new({from: contractOwnerAccount, data: mmwlBin, gas: 6000000},
+  function(e, contract) {
+    if (!e) {
+      if (!contract.address) {
+        mmwlTx = contract.transactionHash;
+      } else {
+        mmwlAddress = contract.address;
+        addAccount(mmwlAddress, "MinMaxWhiteList");
+        console.log("DATA: mmwlAddress=" + mmwlAddress);
+      }
+    }
+  }
+);
+
+// -----------------------------------------------------------------------------
 var pbvMessage = "Deploy PresaleBonusVoting Contract";
 console.log("RESULT: " + pbvMessage);
 var pbvContract = web3.eth.contract(pbvAbi);
@@ -159,52 +237,31 @@ var pbv = pbvContract.new({from: contractOwnerAccount, data: pbvBin, gas: 600000
   }
 );
 
-// -----------------------------------------------------------------------------
-var mtMessage = "Deploy MintableToken Contract";
-console.log("RESULT: " + mtMessage);
-var mtContract = web3.eth.contract(mtAbi);
-console.log(JSON.stringify(mtContract));
-var mtTx = null;
-var mtAddress = null;
-var mt = mtContract.new({from: contractOwnerAccount, data: mtBin, gas: 6000000},
-  function(e, contract) {
-    if (!e) {
-      if (!contract.address) {
-        mtTx = contract.transactionHash;
-      } else {
-        mtAddress = contract.address;
-        addAccount(mtAddress, "MintableToken");
-        console.log("DATA: mtAddress=" + mtAddress);
-      }
-    }
-  }
-);
-
-
 while (txpool.status.pending > 0) {
 }
 
-printTxData("alAddress=" + alAddress, alTx);
+printTxData("sanAddress=" + sanAddress, sanTx);
 printTxData("bsAddress=" + bsAddress, bsTx);
+printTxData("alAddress=" + alAddress, alTx);
+printTxData("mmwlAddress=" + mmwlAddress, mmwlTx);
 printTxData("pbvAddress=" + pbvAddress, pbvTx);
-printTxData("mtAddress=" + mtAddress, mtTx);
 
 printBalances();
 
-failIfGasEqualsGasUsed(alTx, alMessage);
+failIfGasEqualsGasUsed(sanTx, sanMessage);
 failIfGasEqualsGasUsed(bsTx, bsMessage);
+failIfGasEqualsGasUsed(alTx, alMessage);
+failIfGasEqualsGasUsed(mmwlTx, mmwlMessage);
 failIfGasEqualsGasUsed(pbvTx, pbvMessage);
-failIfGasEqualsGasUsed(alTx, mtMessage);
 
-printalContractDetails();
 console.log("RESULT: ");
 
 console.log("DATA: lastBlockNumber=" + eth.blockNumber + ";");
-console.log("DATA: COMMUNITY_SALE_START=" + (parseInt(eth.blockNumber) + 5) + ";");
-console.log("DATA: PRIORITY_SALE_START=" + (parseInt(eth.blockNumber) + 10) + ";");
-console.log("DATA: PUBLIC_SALE_START=" + (parseInt(eth.blockNumber) + 15) + ";");
-console.log("DATA: PUBLIC_SALE_END=" + (parseInt(eth.blockNumber) + 20) + ";");
-console.log("DATA: WITHDRAWAL_END=" + (parseInt(eth.blockNumber) + 25) + ";");
+console.log("DATA: COMMUNITY_SALE_START=" + (parseInt(eth.blockNumber) + 15) + ";");
+console.log("DATA: PRIORITY_SALE_START=" + (parseInt(eth.blockNumber) + 20) + ";");
+console.log("DATA: PUBLIC_SALE_START=" + (parseInt(eth.blockNumber) + 25) + ";");
+console.log("DATA: PUBLIC_SALE_END=" + (parseInt(eth.blockNumber) + 30) + ";");
+console.log("DATA: WITHDRAWAL_END=" + (parseInt(eth.blockNumber) + 35) + ";");
 
 EOFSUPPORTING
 grep "DATA: " $SUPPORTING1OUTPUT | sed "s/DATA: //" > $SUPPORTINGDATAJS
@@ -212,10 +269,16 @@ cat $SUPPORTINGDATAJS
 grep "RESULT: " $SUPPORTING1OUTPUT | sed "s/RESULT: //" > $SUPPORTING1RESULTS
 cat $SUPPORTING1RESULTS
 
-ADDRESSLISTADDRESS=`grep ^alAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
+
+# ------------------------------------------------------------------------------
+# CrowdsaleMinter
+# ------------------------------------------------------------------------------
+
 BALANCESTORAGEADDRESS=`grep ^bsAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
+ADDRESSLISTADDRESS=`grep ^alAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
+MINMAXWHITELISTADDRESS=`grep ^mmwlAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
 PRESALEBONUSVOTINGADDRESS=`grep ^pbvAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
-MINTABLETOKENADDRESS=`grep ^mtAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
+SANADDRESS=`grep ^sanAddress= $SUPPORTINGDATAJS | sed "s/^.*=//"`
 LASTBLOCKNUMBER=`grep ^lastBlockNumber= $SUPPORTINGDATAJS | sed "s/^.*=//"`
 COMMUNITY_SALE_START=`grep ^COMMUNITY_SALE_START= $SUPPORTINGDATAJS | sed "s/^.*=//" | sed "s/;//"`
 PRIORITY_SALE_START=`grep ^PRIORITY_SALE_START= $SUPPORTINGDATAJS | sed "s/^.*=//" | sed "s/;//"`
@@ -223,10 +286,11 @@ PUBLIC_SALE_START=`grep ^PUBLIC_SALE_START= $SUPPORTINGDATAJS | sed "s/^.*=//" |
 PUBLIC_SALE_END=`grep ^PUBLIC_SALE_END= $SUPPORTINGDATAJS | sed "s/^.*=//" | sed "s/;//"`
 WITHDRAWAL_END=`grep ^WITHDRAWAL_END= $SUPPORTINGDATAJS | sed "s/^.*=//" | sed "s/;//"`
 
-printf "ADDRESSLISTADDRESS        = '$ADDRESSLISTADDRESS'\n"
+printf "SANADDRESS                = '$SANADDRESS'\n"
 printf "BALANCESTORAGEADDRESS     = '$BALANCESTORAGEADDRESS'\n"
+printf "ADDRESSLISTADDRESS        = '$ADDRESSLISTADDRESS'\n"
+printf "MINMAXWHITELISTADDRESS    = '$MINMAXWHITELISTADDRESS'\n"
 printf "PRESALEBONUSVOTINGADDRESS = '$PRESALEBONUSVOTINGADDRESS'\n"
-printf "MINTABLETOKENADDRESS      = '$MINTABLETOKENADDRESS'\n"
 printf "LASTBLOCKNUMBER           = '$LASTBLOCKNUMBER'\n"
 printf "COMMUNITY_SALE_START      = '$COMMUNITY_SALE_START'\n"
 printf "PRIORITY_SALE_START       = '$PRIORITY_SALE_START'\n"
@@ -240,62 +304,23 @@ printf "\n"
 # --- Modify dates ---
 #`perl -pi -e "s/startTime \= 1498140000;.*$/startTime = $STARTTIME; \/\/ $STARTTIME_S/" $CROWDSALEMINTERTEMPSOL`
 #`perl -pi -e "s/deadline \=  1499436000;.*$/deadline = $ENDTIME; \/\/ $ENDTIME_S/" $CROWDSALEMINTERTEMPSOL`
+
 `perl -pi -e "s/OWNER \= 0x00000000000000000000000000;.*$/OWNER \= 0xa11aae29840fbb5c86e6fd4cf809eba183aef433;/" $CROWDSALEMINTERTEMPSOL`
-`perl -pi -e "s/PRIORITY_ADDRESS_LIST \= 0x00000000000000000000000000;.*$/PRIORITY_ADDRESS_LIST \= $ADDRESSLISTADDRESS;/" $CROWDSALEMINTERTEMPSOL`
-`perl -pi -e "s/PRESALE_BALANCES     \= BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);.*$/PRESALE_BALANCES     \= BalanceStorage($BALANCESTORAGEADDRESS);/" $CROWDSALEMINTERTEMPSOL`
-`perl -pi -e "s/PRESALE_BONUS_VOTING \= PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);.*$/PRESALE_BONUS_VOTING \= PresaleBonusVoting($PRESALEBONUSVOTINGADDRESS);/" $CROWDSALEMINTERTEMPSOL`
-`perl -pi -e "s/TOKEN                \= MintableToken(0x00000000000000000000000000);.*$/TOKEN                \= MintableToken(MINTABLETOKENADDRESS);/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/ADMIN \= 0x00000000000000000000000000;.*$/ADMIN = 0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976;/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/TEAM_GROUP_WALLET           \= 0x00000000000000000000000000;.*$/TEAM_GROUP_WALLET           \= 0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0;/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/ADVISERS_AND_FRIENDS_WALLET \= 0x00000000000000000000000000;.*$/ADVISERS_AND_FRIENDS_WALLET \= 0xa44a08d3f6933c69212114bb66e2df1813651844;/" $CROWDSALEMINTERTEMPSOL`
+
+`perl -pi -e "s/PRIORITY_ADDRESS_LIST    \= AddressList\(0x00000000000000000000000000\);.*$/PRIORITY_ADDRESS_LIST    = AddressList\($ADDRESSLISTADDRESS\);/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/COMMUNITY_ALLOWANCE_LIST \= MinMaxWhiteList\(0x00000000000000000000000000\);.*$/COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList\($MINMAXWHITELISTADDRESS\);/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/PRESALE_BALANCES         \= BalanceStorage\(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2\);.*$/PRESALE_BALANCES         \= BalanceStorage\($BALANCESTORAGEADDRESS\);/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/PRESALE_BONUS_VOTING     \= PresaleBonusVoting\(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c\);.*$/PRESALE_BONUS_VOTING     \= PresaleBonusVoting\($PRESALEBONUSVOTINGADDRESS\);/" $CROWDSALEMINTERTEMPSOL`
+`perl -pi -e "s/TOKEN                    \= MintableToken\(0x00000000000000000000000000\);.*$/TOKEN                    \= MintableToken\($SANADDRESS\);/" $CROWDSALEMINTERTEMPSOL`
 
 `perl -pi -e "s/COMMUNITY_SALE_START \= 0;.*$/COMMUNITY_SALE_START \= $COMMUNITY_SALE_START;/" $CROWDSALEMINTERTEMPSOL`
 `perl -pi -e "s/PRIORITY_SALE_START  \= 0;.*$/PRIORITY_SALE_START  \= $PRIORITY_SALE_START;/" $CROWDSALEMINTERTEMPSOL`
 `perl -pi -e "s/PUBLIC_SALE_START    \= 0;.*$/PUBLIC_SALE_START    \= $PUBLIC_SALE_START;/" $CROWDSALEMINTERTEMPSOL`
 `perl -pi -e "s/PUBLIC_SALE_END      \= 0;.*$/PUBLIC_SALE_END      \= $PUBLIC_SALE_END;/" $CROWDSALEMINTERTEMPSOL`
 `perl -pi -e "s/WITHDRAWAL_END       \= 0;.*$/WITHDRAWAL_END       \= $WITHDRAWAL_END;/" $CROWDSALEMINTERTEMPSOL`
-
-# // TOKEN_PER_ETH == 0
-#   uint public constant TOKEN_PER_ETH = 1000;
-
-# || MIN_ACCEPTED_AMOUNT_FINNEY < 1
-# uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
-
-# || OWNER == 0x0
-# Replaces
-
-# || PRIORITY_ADDRESS_LIST == 0x0
-# Replaced
-
-# || address(PRESALE_BALANCES) == 0x0
-# Replaced
-
-# || address(PRESALE_BONUS_VOTING) == 0x0
-# Replaced
-
-# || COMMUNITY_SALE_START == 0
-# || PRIORITY_SALE_START == 0
-# || PUBLIC_SALE_START == 0
-# || PUBLIC_SALE_END == 0
-# || WITHDRAWAL_END == 0
-# Replaced
-
-# || MIN_TOTAL_AMOUNT_TO_RECEIVE == 0
-# uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
-
-# || MAX_TOTAL_AMOUNT_TO_RECEIVE == 0
-# uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
-
-# || COMMUNITY_PLUS_PRIORITY_SALE_CAP == 0
-# uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
-
-# || COMMUNITY_SALE_START <= block.number
-# || COMMUNITY_SALE_START >= PRIORITY_SALE_START
-# || PRIORITY_SALE_START >= PUBLIC_SALE_START
-# || PUBLIC_SALE_START >= PUBLIC_SALE_END
-# || PUBLIC_SALE_END >= WITHDRAWAL_END
-# Above OK
-
-# || COMMUNITY_PLUS_PRIORITY_SALE_CAP > MAX_TOTAL_AMOUNT_TO_RECEIVE
-# || MIN_TOTAL_AMOUNT_TO_RECEIVE > MAX_TOTAL_AMOUNT_TO_RECEIVE )
-# Above Ok
 
 
 DIFFS2=`diff $CROWDSALEMINTERSOL $CROWDSALEMINTERTEMPSOL`
@@ -334,8 +359,8 @@ var csm = csmContract.new(contractOwnerAccount, {from: contractOwnerAccount, dat
         csmTx = contract.transactionHash;
       } else {
         csmAddress = contract.address;
-        addAccount(csmAddress, "FunFairSale");
-        addcsmContractAddressAndAbi(csmAddress, csmAbi);
+        addAccount(csmAddress, "CrowdsaleMinter");
+        addCsmContractAddressAndAbi(csmAddress, csmAbi);
         console.log("DATA: csmAddress=" + csmAddress);
       }
     }
@@ -346,7 +371,7 @@ while (txpool.status.pending > 0) {
 printTxData("csmAddress=" + csmAddress, csmTx);
 printBalances();
 failIfGasEqualsGasUsed(csmTx, csmMessage);
-printcsmContractDetails();
+printCsmContractDetails();
 console.log("RESULT: ");
 console.log(JSON.stringify(csm));
 

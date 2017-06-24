@@ -1,6 +1,19 @@
 IPCFILE=ipc:./testchain/geth.ipc
 PASSWORD=testtest
 
+BASESOL=../../contracts/Base.sol
+BASETEMPSOL=Base.sol
+
+ERC20SOL=../../contracts/ERC20.sol
+ERC20TEMPSOL=ERC20.sol
+
+SUBSCRIPTIONMODULESOL=../../contracts/SubscriptionModule.sol
+SUBSCRIPTIONMODULETEMPSOL=SubscriptionModule.sol
+
+SANSOL=../../contracts/SAN.sol
+SANTEMPSOL=SAN.sol
+SANJS=SAN.js
+
 SUPPORTINGSOL=modifiedContracts/Supporting.sol
 SUPPORTINGTEMPSOL=Supporting.sol
 SUPPORTINGJS=Supporting.js

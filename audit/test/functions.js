@@ -1,5 +1,5 @@
-// Jun 12 2017
-var ethPriceUSD = 380.39;
+// Jun 25 2017 02:30:00 AEST
+var ethPriceUSD = 336.138;
 
 // -----------------------------------------------------------------------------
 // Accounts
@@ -9,9 +9,9 @@ var accountNames = {};
 
 addAccount(eth.accounts[0], "Account #0 - Miner");
 addAccount(eth.accounts[1], "Account #1 - Contract Owner");
-addAccount(eth.accounts[2], "Account #2 - Priority Address");
-addAccount(eth.accounts[3], "Account #3 - KYCed");
-addAccount(eth.accounts[4], "Account #4");
+addAccount(eth.accounts[2], "Account #2 - Admin");
+addAccount(eth.accounts[3], "Account #3 - Team Group");
+addAccount(eth.accounts[4], "Account #4 - Advisors & Friends");
 addAccount(eth.accounts[5], "Account #5");
 addAccount(eth.accounts[6], "Account #6");
 addAccount(eth.accounts[7], "Account #7");
@@ -30,9 +30,9 @@ addAccount(eth.accounts[8], "Account #8");
 
 var minerAccount = eth.accounts[0];
 var contractOwnerAccount = eth.accounts[1];
-var account2 = eth.accounts[2];
-var account3 = eth.accounts[3];
-var account4 = eth.accounts[4];
+var adminAccount = eth.accounts[2];
+var teamGAccount = eth.accounts[3];
+var advisorsAndFriendsAccount = eth.accounts[4];
 var account5 = eth.accounts[5];
 var account6 = eth.accounts[6];
 var account7 = eth.accounts[7];
@@ -196,34 +196,53 @@ function failIfGasEqualsGasUsedOrContractAddressNull(contractAddress, tx, msg) {
 
 
 //-----------------------------------------------------------------------------
-// FFS Contract
+// CrowdsaleMinter
 //-----------------------------------------------------------------------------
-var ffsContractAddress = null;
-var ffsContractAbi = null;
+var csmContractAddress = null;
+var csmContractAbi = null;
 
-function addFfsContractAddressAndAbi(address, abi) {
-  ffsContractAddress = address;
-  ffsContractAbi = abi;
+function addCsmContractAddressAndAbi(address, abi) {
+  csmContractAddress = address;
+  csmContractAbi = abi;
 }
 
-function printFfsContractDetails() {
-  console.log("RESULT: ffsContractAddress=" + ffsContractAddress);
-  console.log("RESULT: ffsContractAbi=" + JSON.stringify(ffsContractAbi));
-  if (ffsContractAddress != null && ffsContractAbi != null) {
-    var contract = eth.contract(ffsContractAbi).at(ffsContractAddress);
-    console.log("RESULT: ffs.owner=" + contract.owner());
-    // NOT PUBLIC console.log("RESULT: ffs.newOwner=" + contract.newOwner());
-    var startTime = contract.startTime();
-    console.log("RESULT: ffs.startTime=" + startTime + " " + new Date(startTime * 1000).toUTCString()  + 
-        " / " + new Date(startTime * 1000).toGMTString());
-    var deadline = contract.deadline();
-    console.log("RESULT: ffs.deadline=" + deadline + " " + new Date(deadline * 1000).toUTCString() + 
-        " / " + new Date(deadline * 1000).toGMTString());
-    console.log("RESULT: ffs.capAmount=" + contract.capAmount().shift(-18));
+function printCsmContractDetails() {
+  console.log("RESULT: csmContractAddress=" + csmContractAddress);
+  console.log("RESULT: csmContractAbi=" + JSON.stringify(csmContractAbi));
+  if (csmContractAddress != null && csmContractAbi != null) {
+    var contract = eth.contract(csmContractAbi).at(csmContractAddress);
+    console.log("RESULT: csm.VERSION=" + contract.VERSION());
+    console.log("RESULT: eth.blockNumber=" + eth.blockNumber);
+    console.log("RESULT: csm.COMMUNITY_SALE_START=" + contract.COMMUNITY_SALE_START());
+    console.log("RESULT: csm.PRIORITY_SALE_START=" + contract.PRIORITY_SALE_START());
+    console.log("RESULT: csm.PUBLIC_SALE_START=" + contract.PUBLIC_SALE_START());
+    console.log("RESULT: csm.PUBLIC_SALE_END=" + contract.PUBLIC_SALE_END());
+    console.log("RESULT: csm.WITHDRAWAL_END=" + contract.WITHDRAWAL_END());
+    console.log("RESULT: csm.OWNER=" + contract.OWNER());
+    console.log("RESULT: csm.ADMIN=" + contract.ADMIN());
+    console.log("RESULT: csm.TEAM_GROUP_WALLET=" + contract.TEAM_GROUP_WALLET());
+    console.log("RESULT: csm.ADVISERS_AND_FRIENDS_WALLET=" + contract.ADVISERS_AND_FRIENDS_WALLET());
+    console.log("RESULT: csm.TEAM_BONUS_PER_CENT=" + contract.TEAM_BONUS_PER_CENT());
+    console.log("RESULT: csm.ADVISORS_AND_PARTNERS_PER_CENT=" + contract.ADVISORS_AND_PARTNERS_PER_CENT());
+    console.log("RESULT: csm.TOKEN=" + contract.TOKEN());
+    console.log("RESULT: csm.PRIORITY_ADDRESS_LIST=" + contract.PRIORITY_ADDRESS_LIST());
+    console.log("RESULT: csm.COMMUNITY_ALLOWANCE_LIST=" + contract.COMMUNITY_ALLOWANCE_LIST());
+    console.log("RESULT: csm.PRESALE_BALANCES=" + contract.PRESALE_BALANCES());
+    console.log("RESULT: csm.PRESALE_BONUS_VOTING=" + contract.PRESALE_BONUS_VOTING());
+    console.log("RESULT: csm.COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH=" + contract.COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH());
+    console.log("RESULT: csm.MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH=" + contract.MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH());
+    console.log("RESULT: csm.MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH=" + contract.MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH());
+    console.log("RESULT: csm.MIN_ACCEPTED_AMOUNT_FINNEY=" + contract.MIN_ACCEPTED_AMOUNT_FINNEY());
+    console.log("RESULT: csm.TOKEN_PER_ETH=" + contract.TOKEN_PER_ETH());
+    console.log("RESULT: csm.PRE_SALE_BONUS_PER_CENT=" + contract.PRE_SALE_BONUS_PER_CENT());
+    console.log("RESULT: csm.isAborted=" + contract.isAborted());
+    console.log("RESULT: csm.TOKEN_STARTED=" + contract.TOKEN_STARTED());
+    console.log("RESULT: csm.total_received_amount=" + contract.total_received_amount().shift(-18));
+    console.log("RESULT: csm.investorsCount=" + contract.investorsCount());
+    console.log("RESULT: csm.TOTAL_RECEIVED_ETH=" + contract.TOTAL_RECEIVED_ETH());
+    console.log("RESULT: csm.state=" + contract.state());
   }
 }
-
-
 
 
 // -----------------------------------------------------------------------------

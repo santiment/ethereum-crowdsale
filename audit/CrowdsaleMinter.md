@@ -1,5 +1,8 @@
 # CrowdsaleMinter
 
+My Notes:
+
+* This contract will hold the raised funds until the funds can be withdrawn, so is high risk
 
 ```javascript
 pragma solidity ^0.4.11;
@@ -31,6 +34,11 @@ contract AddressList {
     function contains(address addr) public returns (bool);
 }
 
+contract MinMaxWhiteList {
+    // BK NOTE - The units here are in finney. uint24 has max 2^24 = 16,777,216, max 16777.216 eth
+    function allowed(address addr) public returns (uint24 /*finney*/, uint24 /*finney*/ );
+}
+
 contract PresaleBonusVoting {
     function rawVotes(address addr) public returns (uint rawVote);
 }
@@ -57,32 +65,31 @@ contract CrowdsaleMinter {
     address public constant OWNER = 0x00000000000000000000000000;
     address public constant ADMIN = 0x00000000000000000000000000;
 
-    address public constant PRIORITY_ADDRESS_LIST = 0x00000000000000000000000000;
-
     address public constant TEAM_GROUP_WALLET           = 0x00000000000000000000000000;
     address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;
 
     uint public constant TEAM_BONUS_PER_CENT           = 18;
     uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
-    MintableToken      public TOKEN                = MintableToken(0x00000000000000000000000000);
-    BalanceStorage     public PRESALE_BALANCES     = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
-    PresaleBonusVoting public PRESALE_BONUS_VOTING = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
+    MintableToken      public TOKEN                    = MintableToken(0x00000000000000000000000000);
+
+    AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x00000000000000000000000000);
+    MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0x00000000000000000000000000);
+    BalanceStorage     public PRESALE_BALANCES         = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
+    PresaleBonusVoting public PRESALE_BONUS_VOTING     = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
+    // BK Ok - 0.5 ETH
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
+    // BK Ok
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
 
     //constructor
-    function CrowdsaleMinter() validSetupOnly() {
-        //ToDo: extract to external contract
-        community_amount_available[0x00000001] = 1 ether;
-        community_amount_available[0x00000002] = 2 ether;
-        //...
-    }
+    // BK OK - Constructor, with modifier to check all relevant constants have been set correctly
+    function CrowdsaleMinter() validSetupOnly() {}
 
     /* ====== configuration END ====== */
 
@@ -90,7 +97,6 @@ contract CrowdsaleMinter {
 
     bool public isAborted = false;
     mapping (address => uint) public balances;
-    mapping (address => uint) public community_amount_available;
     bool public TOKEN_STARTED = false;
     uint public total_received_amount;
     address[] public investors;
@@ -112,6 +118,7 @@ contract CrowdsaleMinter {
     uint private constant COMMUNITY_PLUS_PRIORITY_SALE_CAP = COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH * 1 ether;
     uint private constant MIN_TOTAL_AMOUNT_TO_RECEIVE = MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
     uint private constant MAX_TOTAL_AMOUNT_TO_RECEIVE = MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH * 1 ether;
+    // BK Ok - 0.5 ETH in wei
     uint private constant MIN_ACCEPTED_AMOUNT = MIN_ACCEPTED_AMOUNT_FINNEY * 1 finney;
     bool private allBonusesAreMinted = false;
 
@@ -127,11 +134,15 @@ contract CrowdsaleMinter {
         State state = currentState();
         uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
-            amount_allowed = community_amount_available[msg.sender];
-            var amount_accepted = _receiveFundsUpTo(amount_allowed);
-            community_amount_available[msg.sender] -= amount_accepted;
+            var (min_finney, max_finney) = COMMUNITY_ALLOWANCE_LIST.allowed(msg.sender);
+            var (min, max) = (min_finney * 1 finney, max_finney * 1 finney);
+            var sender_balance = balances[msg.sender];
+            assert (sender_balance <= max); //sanity check: should be always true;
+            assert (msg.value >= min);      //reject payments less than minimum
+            amount_allowed = max - sender_balance;
+            _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PRIORITY_SALE) {
-            assert (AddressList(PRIORITY_ADDRESS_LIST).contains(msg.sender));
+            assert (PRIORITY_ADDRESS_LIST.contains(msg.sender));
             amount_allowed = COMMUNITY_PLUS_PRIORITY_SALE_CAP - total_received_amount;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PUBLIC_SALE) {
@@ -235,7 +246,7 @@ contract CrowdsaleMinter {
 
     function _receiveFundsUpTo(uint amount) private
     notTooSmallAmountOnly
-    returns (uint) {
+    {
         require (amount > 0);
         if (msg.value > amount) {
             // accept amount only and return change
@@ -249,13 +260,25 @@ contract CrowdsaleMinter {
         balances[msg.sender] += amount;
         total_received_amount += amount;
         _mint(amount,msg.sender);
-        return amount;
     }
 
     function _mint(uint amount, address account) private {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
+    // BK CHECK - Confirm there are no gaps
+    // State
+    // - REFUND_RUNNING if aborted and balance > 0
+    // - CLOSED if aborted and balance == 0
+    // - BEFORE_START if # < COMMUNITY_SALE_START or the token is not defined
+    // - COMMUNITY_SALE if # < PRIORITY_SALE_START
+    // - PRIORITY_SALE if # < PUBLIC_SALE_START and total_received_amount (in wei) < COMMUNITY_PLUS_PRIORITY_SALE_CAP (in wei)
+    // - PRIORITY_SALE_FINISHED if # < PUBLIC_SALE_START and total_received_amount (in wei) >= COMMUNITY_PLUS_PRIORITY_SALE_CAP (in wei)
+    // - PUBLIC_SALE if # < PUBLIC_SALE_END and total_received_amount (in wei) < MAX_TOTAL_AMOUNT_TO_RECEIVE (in wei)
+    // - CLOSED if balance == 0
+    // - WITHDRAWAL_RUNNING if # < WITHDRAWAL_END and total_received_amount (in wei) >= MIN_TOTAL_AMOUNT_TO_RECEIVE and allBonusesAreMinted
+    // - BONUS_MINTING if # < WITHDRAWAL_END and total_received_amount (in wei) >= MIN_TOTAL_AMOUNT_TO_RECEIVE and !allBonusesAreMinted
+    // - otherwise REFUND_RUNNING
     function currentState() private constant
     returns (State)
     {
@@ -301,14 +324,16 @@ contract CrowdsaleMinter {
     }
 
     //fails if something in setup is looking weird
+    // BK Ok
     modifier validSetupOnly() {
         if (
             TOKEN_PER_ETH == 0
             || MIN_ACCEPTED_AMOUNT_FINNEY < 1
             || OWNER == 0x0
-            || PRIORITY_ADDRESS_LIST == 0x0
-            || address(PRESALE_BALANCES) == 0x0
+            || address(COMMUNITY_ALLOWANCE_LIST) == 0x0
+            || address(PRIORITY_ADDRESS_LIST) == 0x0
             || address(PRESALE_BONUS_VOTING) == 0x0
+            || address(PRESALE_BALANCES) == 0x0
             || COMMUNITY_SALE_START == 0
             || PRIORITY_SALE_START == 0
             || PUBLIC_SALE_START == 0
