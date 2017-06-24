@@ -3,7 +3,7 @@ pragma solidity ^0.4.11;
 import "./ERC20.sol";
 import "./SubscriptionModule.sol";
 
-contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
+contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     string public constant name     = "SANtiment network token";
     string public constant symbol   = "SAN";
@@ -11,8 +11,6 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     address CROWDSALE_MINTER = 0x00000000;
     address public SUBSCRIPTION_MODULE = 0x00000000;
-    address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
-    address public nextAdmin; //used in two step schema for admin change. This enforces nextAdmin to use his signature before he becomes admin.
     address public beneficiary;
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0.01%
@@ -21,7 +19,7 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     ///@dev constructor
     function SAN(){
-        beneficiary = admin = msg.sender;
+        beneficiary = owner = msg.sender;
     }
 
     // ------------------------------------------------------------------------
@@ -31,31 +29,21 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         throw;
     }
 
-    //======== SECTION Configuration: Admin only ========
+    //======== SECTION Configuration: Owner only ========
     //
     ///@notice set beneficiary - the account receiving platform fees.
-    function setBeneficiary(address newBeneficiary) external only(admin) {
+    function setBeneficiary(address newBeneficiary)
+    external
+    only(owner) {
         beneficiary = newBeneficiary;
     }
 
-    ///@notice 1st of 2 step to change admin
-    ///@dev two step admin change protocol. 1st step: old admin propose the new one
-    function prepareAdminChange(address newAdmin) external only(admin) {
-        nextAdmin = newAdmin;
-    }
-
-    ///@notice 1st of 2 step to change admin
-    ///@dev two step admin change protocol. 2st step: new admin accepts new role.
-    function confirmAdminChange() external only(nextAdmin) {
-        admin = nextAdmin;
-        delete nextAdmin;
-    }
 
     ///@notice attach module managing subscriptions. if subModule==0x0, then disables subscription functionality for this token.
     /// detached module can usually manage subscriptions, but all operations changing token balances are disabled.
     function attachSubscriptionModule(SubscriptionModule subModule)
     external
-    only(admin) {
+    only(owner) {
         SUBSCRIPTION_MODULE = subModule;
         if (address(subModule) > 0) subModule.attachToken(this);
     }
@@ -63,7 +51,7 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
     ///@notice set platform fee denominated in 1/10000 of SAN token. Thus "1" means 0.01% of SAN token.
     function setPlatformFeePer10000(uint newFee)
     external
-    only(admin) {
+    only(owner) {
         require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
         PLATFORM_FEE_PER_10000 = newFee;
     }
@@ -158,11 +146,13 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
     }
 
     ///@notice start normal operation of the token. No minting is possible after this point.
-    function start() isNotStartedOnly only(admin) {
+    function start()
+    isNotStartedOnly
+    only(owner) {
         totalInCirculation = totalSupply;
         isStarted = true;
     }
-
+    
     //========= SECTION: Modifier ===============
 
     modifier onlyCrowdsaleMinter() {
