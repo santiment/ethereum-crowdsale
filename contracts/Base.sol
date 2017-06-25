@@ -10,6 +10,17 @@ contract Base {
         _;
     }
 
+
+    /// @return True if `_addr` is a contract
+    function isContract(address _addr) constant internal returns (bool) {
+        if (_addr == 0) return false;
+        uint size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
+    }
+
     //prevents reentrancy attacs
     bool private locked = false;
     modifier noReentrancy() {

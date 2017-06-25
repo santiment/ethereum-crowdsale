@@ -6,8 +6,8 @@ import "./ERC20.sol";
 // 1 - Provider is solely responsible to consider failed sub charge as an error and stop the service,
 //    therefore there is no separate error state or counter for that in this Token Contract.
 //
-// 2 - Any call originated from the user (tx.origin==msg.sender) should throw an exception on error,
-//     but it should return "false" on error if called from other contract (tx.origin!=msg.sender).
+// 2 - A call originated from the user (isContract(msg.sender)==false) should throw an exception on error,
+//     but it should return "false" on error if called from other contract (isContract(msg.sender)==true).
 //     Reason: thrown exception are easier to see in wallets, returned boolean values are easier to evaluate in the code of the calling contract.
 //
 //ToDo:
@@ -227,8 +227,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
             return true;
-        } else if (tx.origin==msg.sender) { throw; }
-          else { return false; }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
@@ -236,8 +236,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
             return true;
-        } else if (tx.origin==msg.sender) { throw; }
-          else { return false; }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     function executeSubscription(uint subId) public returns (bool) {
@@ -256,8 +256,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
                 return true;
             }
         }
-        if (tx.origin==msg.sender) { throw; }
-        else { return false; }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success){
