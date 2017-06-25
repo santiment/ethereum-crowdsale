@@ -86,13 +86,13 @@ contract SubscriptionBase {
 
     event NewSubscription(address customer, address service, uint offerId, uint subId);
     event NewDeposit(uint depositId, uint value, address sender);
-    event NewXRateProvider(address addr, uint16 xRateProviderId);
-    event DepositReturned(uint depositId);
-    event SubscriptionDepositReturned(uint subId, uint amount, address returnedTo, address caller);
-    event OfferOnHold(uint offerId, bool onHold);
-    event OfferCanceled(uint offerId);
-    event SubOnHold(uint offerId, bool onHold);
-    event SubCanceled(uint subId);
+    event NewXRateProvider(address addr, uint16 xRateProviderId, address sender);
+    event DepositReturned(uint depositId, address returnedTo);
+    event SubscriptionDepositReturned(uint subId, uint amount, address returnedTo, address sender);
+    event OfferOnHold(uint offerId, bool onHold, address sender);
+    event OfferCanceled(uint offerId, address sender);
+    event SubOnHold(uint offerId, bool onHold, address sender);
+    event SubCanceled(uint subId, address sender);
 
 }
 
@@ -154,7 +154,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
     enum PaymentStatus {OK, BALANCE_ERROR, APPROVAL_ERROR}
 
-    event Payment(address _from, address _to, uint _value, uint _fee, address caller, PaymentStatus status, uint subId);
+    event Payment(address _from, address _to, uint _value, uint _fee, address sender, PaymentStatus status, uint subId);
 
 }
 
@@ -225,7 +225,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     function registerXRateProvider(XRateProvider addr) external only(owner) returns (uint16 xrateProviderId) {
         xrateProviderId = uint16(xrateProviders.length);
         xrateProviders.push(addr);
-        NewXRateProvider(addr, xrateProviderId);
+        NewXRateProvider(addr, xrateProviderId, msg.sender);
     }
 
     function getXRateProviderLength() external constant returns (uint) { return xrateProviders.length; }
@@ -402,7 +402,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         assert (offer.transferTo == msg.sender || owner == msg.sender); //only service provider or platform owner is allowed to cancel the offer
         if (offer.expireOn>now){
             offer.expireOn = now;
-            OfferCanceled(offerId);
+            OfferCanceled(offerId, msg.sender);
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
@@ -445,7 +445,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
                 //Later: is it possible to evaluate return value here? If is better to return the subscription deposit here.
             }
         }
-        SubCanceled(subId);
+        SubCanceled(subId, msg.sender);
     }
 
 
@@ -486,6 +486,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
 
     ///@notice place an active offer on hold; it means no subscriptions can be created from this offer.
+    ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
     ///@param offerId - id of the offer to be placed on hold.
     function holdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
@@ -493,20 +494,22 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         require (msg.sender == offer.transferTo || msg.sender == owner); //only owner or service provider can place the offer on hold.
         if (offer.onHoldSince == 0) {
             offer.onHoldSince = now;
-            OfferOnHold(offerId, true);
+            OfferOnHold(offerId, true, msg.sender);
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
     }
 
-    // resume currently on-hold offer.
+    ///@notice resume on-hold offer; subscriptions can be created from this offer again (if other conditions are met).
+    ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
+    ///@param offerId - id of the offer to be resumed.
     function unholdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
         assert (_isOffer(offer));
         require (msg.sender == offer.transferTo || msg.sender == owner); //only owner or service provider can reactivate the offer.
         if (offer.onHoldSince > 0) {
             offer.onHoldSince = 0;
-            OfferOnHold(offerId, false);
+            OfferOnHold(offerId, false, msg.sender);
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
@@ -520,7 +523,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         var _to = sub.transferTo;
         if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, true)) {
             sub.onHoldSince = now;
-            SubOnHold(subId, true);
+            SubOnHold(subId, true, msg.sender);
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
@@ -535,7 +538,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, false)) {
             sub.paidUntil += now - sub.onHoldSince;
             sub.onHoldSince = 0;
-            SubOnHold(subId, false);
+            SubOnHold(subId, false, msg.sender);
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
@@ -559,14 +562,14 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         san._mintFromDeposit(sub.transferFrom, depositAmount);
     }
 
-    function _createDeposit(address owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
-        assert (san._burnForDeposit(owner,_value));
+    function _createDeposit(address _owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
+        assert (san._burnForDeposit(_owner,_value));
         deposits[++depositCounter] = Deposit ({
-            owner : owner,
+            owner : _owner,
             value : _value,
             descriptor : _descriptor
         });
-        NewDeposit(depositCounter, _value, owner);
+        NewDeposit(depositCounter, _value, _owner);
         return depositCounter;
     }
 
@@ -574,7 +577,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         if (deposits[depositId].owner == returnTo) {
             san._mintFromDeposit(returnTo, deposits[depositId].value);
             delete deposits[depositId];
-            DepositReturned(depositId);
+            DepositReturned(depositId, returnTo);
         } else { throw; }
     }
 

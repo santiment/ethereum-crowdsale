@@ -52,11 +52,11 @@ contract TestableProvider is PaymentListener, SubscriptionBase, Base {
 
     function onSubCanceled(uint subId, address caller) returns (bool) {
         //accept everything;
-        SubCanceled(subId, caller);
+        SubCancelApproved(subId, caller);
         return true;
     }
 
     event NewOffer(address provider, uint offerId);
-    event SubCanceled(uint subId, address caller);
+    event SubCancelApproved(uint subId, address sender);
 
 }

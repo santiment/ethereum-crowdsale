@@ -254,7 +254,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 return sub.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
                 .then(tx => assertLogEvent(tx, abi_SubCanceled, i+': Check: cancel event', (e) =>({
                     subId      : subId,
-                    caller     : s0.transferFrom,
+                    sender     : s0.transferFrom,
                  })))
                 .then(e => assertSubscription(s0, i+':Check: after sub canceled', (s1)=>({
                     expireOn : s1.paidUntil,
@@ -283,7 +283,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         it('create / claim deposite',function(){
             return san.balanceOf(user).then(user_balance0 => {
                 return sub.createDeposit(amount, info, {from:USER_01})
-                    .then(tx => assertLogEvent(tx,abi_NewDeposit,i+'Check: event NewDeposit created', (evnt)=> ({
+                    .then(tx => assertLogEvent(tx,abi_NewDeposit,i+'Check: event NewDeposit created. ', (evnt)=> ({
                         depositId : assert.ok(new BigNumber(evnt.depositId).isBigNumber),
                         value : amount,
                         sender: user
