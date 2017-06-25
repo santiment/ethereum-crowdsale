@@ -88,8 +88,8 @@ contract SubscriptionBase {
     event NewSubscription(address customer, address service, uint offerId, uint subId);
     event NewDeposit(uint depositId, uint value, address sender);
     event NewXRateProvider(address addr, uint16 xRateProviderId);
-    event DepositClosed(uint depositId);
-    event SubscriptionDepositClosed(uint subId, uint amount, address returnedTo, address caller);
+    event DepositReturned(uint depositId);
+    event SubscriptionDepositReturned(uint subId, uint amount, address returnedTo, address caller);
     event OfferOnHold(uint offerId, bool onHold);
     event OfferCanceled(uint offerId);
     event SubOnHold(uint offerId, bool onHold);
@@ -481,7 +481,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         uint depositAmount = sub.depositAmount;
         sub.depositAmount = 0;
         san._mintFromDeposit(sub.transferFrom, depositAmount);
-        SubscriptionDepositClosed(subId, depositAmount, sub.transferFrom, msg.sender);
+        SubscriptionDepositReturned(subId, depositAmount, sub.transferFrom, msg.sender);
     }
 
 
@@ -570,7 +570,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         if (deposits[depositId].owner == returnTo) {
             san._mintFromDeposit(returnTo, deposits[depositId].value);
             delete deposits[depositId];
-            DepositClosed(depositId);
+            DepositReturned(depositId);
         } else { throw; }
     }
 

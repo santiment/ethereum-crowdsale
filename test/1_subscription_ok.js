@@ -103,7 +103,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
     //abi: Events
     const abi_NewDeposit = SubscriptionModule.abi.find(e => e.name==='NewDeposit');
-    const abi_DepositClosed = SubscriptionModule.abi.find(e => e.name==='DepositClosed');
+    const abi_DepositReturned = SubscriptionModule.abi.find(e => e.name==='DepositReturned');
     const abi_NewSubscription = SubscriptionModule.abi.find(e => e.name==='NewSubscription');
     const abi_Payment = SAN.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
@@ -296,7 +296,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         balanceFrom : user_balance0.minus(s1.value)
                     })))
                     .then(s1 => sub.claimDeposit(s1.depositId,{from:USER_01}))
-                    .then(tx => assertLogEvent(tx,abi_DepositClosed,i+'Check: event DepositClosed created', (evnt)=> ({
+                    .then(tx => assertLogEvent(tx,abi_DepositReturned,i+'Check: event DepositReturned created', (evnt)=> ({
                         depositId : evnt.depositId
                     })))
                     .then(evnt => Promise.all([
