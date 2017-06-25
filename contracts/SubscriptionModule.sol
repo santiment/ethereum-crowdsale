@@ -15,6 +15,7 @@ import "./ERC20.sol";
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
 // 7 - check Cancel/Hold/Unhold Offer functionality
+// 8 - add event for _returnSubscriptionDesposit
 //ToDo later:
 // 0 - embed force archive subscription into sub cancellation.
 //     (Currently difficult/impossible because low level call is missing return value)
@@ -88,6 +89,7 @@ contract SubscriptionBase {
     event NewDeposit(uint depositId, uint value, address sender);
     event NewXRateProvider(address addr, uint16 xRateProviderId);
     event DepositClosed(uint depositId);
+    event SubscriptionDepositClosed(uint subId, uint amount, address returnedTo, address caller);
     event OfferOnHold(uint offerId, bool onHold);
     event OfferCanceled(uint offerId);
     event SubOnHold(uint offerId, bool onHold);
@@ -457,7 +459,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         assert (sub.depositAmount > 0); //sanity check
         assert (sub.transferTo == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to release deposit.
         sub.expireOn = now;
-        _returnSubscriptionDesposit(sub);
+        _returnSubscriptionDesposit(subId, sub);
     }
 
 
@@ -470,19 +472,21 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         assert (sub.transferFrom == msg.sender);
         assert (sub.depositAmount > 0);
         assert (_isNotOffer(sub));
-        _returnSubscriptionDesposit(sub);
+        _returnSubscriptionDesposit(subId, sub);
     }
 
 
     //@dev returns subscription deposit to customer
-    function _returnSubscriptionDesposit(Subscription storage sub) internal {
+    function _returnSubscriptionDesposit(uint subId, Subscription storage sub) internal {
         uint depositAmount = sub.depositAmount;
         sub.depositAmount = 0;
         san._mintFromDeposit(sub.transferFrom, depositAmount);
+        SubscriptionDepositClosed(subId, depositAmount, sub.transferFrom, msg.sender);
     }
 
 
-    // place an active offer on hold
+    ///@notice place an active offer on hold; it means no subscriptions can be created from this offer.
+    ///@param offerId - id of the offer to be placed on hold.
     function holdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
         assert (_isOffer(offer));
