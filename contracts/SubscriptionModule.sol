@@ -324,8 +324,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         assert (_isOffer(offer));
         assert(offer.startOn == 0     || offer.startOn <= now);
         assert(offer.expireOn == 0    || offer.expireOn > now);
-        assert(offer.execCounter == 0 || offer.execCounter-- > 0);
-
+        assert(offer.execCounter > 0);
+        --offer.execCounter;  
         newSubId = subscriptionCounter + 1;
         //create a clone of the offer...
         Subscription storage newSub = subscriptions[newSubId] = offer;
