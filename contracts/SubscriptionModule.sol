@@ -118,7 +118,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function executeSubscription(uint subId) public returns (bool success);
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success);
     function currentStatus(uint subId) public constant returns(Status status);
-    function forceArchiveSubscription(uint subId) external;
+    function returnSubscriptionDesposit(uint subId) external;
 
     function holdSubscriptionOffer(uint offerId) public returns (bool success);
     function unholdSubscriptionOffer(uint offerId) public returns (bool success);
@@ -300,6 +300,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         }
     }
 
+
     ///@notice create a new subscription offer.
     ///@dev only registered service provider is allowed to create offers.
     ///@dev subscription uses SAN token for payment, but an exact amount to be paid or deposit is calculated using exchange rate from external xrateProvider (previosly registered on platform).
@@ -341,6 +342,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         return subscriptionCounter;               // returns an id of the new offer.
     }
 
+
     ///@notice updates currently available number of subscription for this offer.
     ///        Other offer's parameter can't be updated because they are considered to be a public offer reviewed by customers.
     ///        The service provider should recreate the offer as a new one in case of other changes.
@@ -351,6 +353,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         assert (offer.transferTo == msg.sender); //only Provider is allowed to update the offer.
         offer.execCounter = _offerLimit;
     }
+
 
     ///@notice accept given offer and create a new subscription on the base of it.
     ///
@@ -388,10 +391,14 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         return (subscriptionCounter = newSubId);
     }
 
+
+    ///@notice cancel an offer given by `offerId`.
+    ///@dev sets offer.`expireOn` to `expireOn`.
+    //
     function cancelSubscriptionOffer(uint offerId) public returns(bool) {
         Subscription storage offer = subscriptions[offerId];
         assert (_isOffer(offer));
-        assert (offer.transferTo == msg.sender || owner == msg.sender); //only service provider or owner is allowed to cancel the offer
+        assert (offer.transferTo == msg.sender || owner == msg.sender); //only service provider or platform owner is allowed to cancel the offer
         if (offer.expireOn>now){
             offer.expireOn = now;
             OfferCanceled(offerId);
@@ -399,49 +406,81 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         } else {return false;}
     }
 
+
+    ///@notice cancel an subscription given by `subId` (a graceful version).
+    ///@notice IMPORTANT: a malicious service provider can consume all gas and preventing subscription from cancellation.
+    ///        If so, use `cancelSubscription(uint subId, uint gasReserve)` as the forced version.
+    ///         see `cancelSubscription(uint subId, uint gasReserve)` for more documentation.
+    //
     function cancelSubscription(uint subId) public {
         return cancelSubscription(subId, 0);
     }
 
+
+    ///@notice cancel an subscription given by `subId` (a forced version).
+    ///        Cancellation means no further charges to this subscription are possible. The provided subscription deposit can be withdrawn only `paidUntil` period is over.
+    ///        Depending on nature of the service provided, the service provider can allow an immediate deposit withdrawal by `returnSubscriptionDesposit(uint subId)` call, but its on his own.
+    ///        In some business cases a deposit must remain locked until `paidUntil` period is over even, the subscription is already canceled.
+    ///@notice gasReserve is a gas amount reserved for contract execution AFTER service provider becomes `onSubCanceled(uint256,address)` notification.
+    ///        It guarantees, that cancellation becomes executed even a (malicious) service provider consumes all gas provided.
+    ///        If so, use `cancelSubscription(uint subId, uint gasReserve)` as the forced version.
+    ///        This difference is because the customer must always have a possibility to cancel his contract even the service provider disagree on cancellation.
+    ///@param subId - subscription to be cancelled
+    ///@param gasReserve - gas reserved for call finalization (minimum reservation is 10000 gas)
+    //
     function cancelSubscription(uint subId, uint gasReserve) public {
         Subscription storage sub = subscriptions[subId];
-        assert (sub.transferFrom == msg.sender || owner == msg.sender); //only subscription owner or owner is allowed to cancel it
+        assert (sub.transferFrom == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to cancel it
         assert (_isNotOffer(sub));
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
         if (msg.sender != _to) {
             //supress re-throwing of exceptions; reserve enough gas to finish this function
-            if (_to.call.gas(msg.gas-max(gasReserve,10000))(bytes4(sha3("onSubCanceled(uint256,address)")), subId, msg.sender)){
+            gasReserve = max(gasReserve,10000);  //reserve minimum 10000 gas
+            assert (msg.gas > gasReserve);       //sanity check
+            if (_to.call.gas(msg.gas-gasReserve)(bytes4(sha3("onSubCanceled(uint256,address)")), subId, msg.sender)){
                 //do nothing. it is notification only.
-                //Later: is it possible to evaluate return value here? We need to in order to
+                //Later: is it possible to evaluate return value here? If is better to return the subscription deposit here.
             }
         }
         SubCanceled(subId);
     }
 
-    function forceArchiveSubscription(uint subId) external {
+
+    ///@notice can be called by provider on CANCELED subscription to return a subscription deposit to customer immediately.
+    ///        Customer can anyway collect his deposit after `paidUntil` period is over.
+    ///@param subId - subscription holding the deposit
+    function returnSubscriptionDesposit(uint subId) external {
         Subscription storage sub = subscriptions[subId];
-        assert (_currentStatus(sub) == Status.CANCELED);
-        assert (sub.transferTo == msg.sender); //only provider is allowed to force expire a canceled sub.
         assert (_isNotOffer(sub));
+        assert (_currentStatus(sub) == Status.CANCELED);
+        assert (sub.depositAmount > 0); //sanity check
+        assert (sub.transferTo == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to release deposit.
         sub.expireOn = now;
-        _returnSubscriptionDespoit(sub);
+        _returnSubscriptionDesposit(sub);
     }
 
+
+    ///@notice called by customer on EXPIRED subscription (`paidUntil` period is over) to collect a subscription deposit.
+    ///        Customer can anyway collect his deposit after `paidUntil` period is over.
+    ///@param subId - subscription holding the deposit
     function claimSubscriptionDeposit(uint subId) public {
         Subscription storage sub = subscriptions[subId];
         assert (_currentStatus(sub) == Status.EXPIRED);
         assert (sub.transferFrom == msg.sender);
         assert (sub.depositAmount > 0);
         assert (_isNotOffer(sub));
-        _returnSubscriptionDespoit(sub);
+        _returnSubscriptionDesposit(sub);
     }
 
-    function _returnSubscriptionDespoit(Subscription storage sub) internal {
+
+    //@dev returns subscription deposit to customer
+    function _returnSubscriptionDesposit(Subscription storage sub) internal {
         uint depositAmount = sub.depositAmount;
         sub.depositAmount = 0;
-        san._mintFromDeposit(msg.sender, depositAmount);
+        san._mintFromDeposit(sub.transferFrom, depositAmount);
     }
+
 
     // place an active offer on hold
     function holdSubscriptionOffer(uint offerId) public returns (bool success) {
