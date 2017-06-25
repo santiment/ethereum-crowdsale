@@ -1,12 +1,13 @@
 # ERC20
 
 ```javascript
+// BK Ok
 pragma solidity ^0.4.11;
 
+// BK Ok
 import "./Base.sol";
 
-//ToDo: write tests for methods with modifier validMsgDataLen(20+32)
-
+// BK Ok
 contract ERC20 {
 
     function totalSupply() constant returns (uint256 totalSupply) {}
@@ -21,6 +22,7 @@ contract ERC20 {
 
 }
 
+// BK Ok
 contract ERC20ModuleSupport {
     function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
     function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
@@ -30,7 +32,9 @@ contract ERC20ModuleSupport {
 
 contract ERC20Impl is ERC20, Base {
 
-    function transfer(address _to, uint256 _value) isRunningOnly validMsgDataLen(20+32) returns (bool success) {
+    // BK Ok
+    function transfer(address _to, uint256 _value) isStartedOnly returns (bool success) {
+        // BK Ok - Check for _value > 0 in second condition, with the overflow check
         if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
             balances[msg.sender] -= _value;
             balances[_to] += _value;
@@ -39,7 +43,9 @@ contract ERC20Impl is ERC20, Base {
         } else { return false; }
     }
 
-    function transferFrom(address _from, address _to, uint256 _value) isRunningOnly validMsgDataLen(20+20+32) returns (bool success) {
+    // BK Ok
+    function transferFrom(address _from, address _to, uint256 _value) isStartedOnly returns (bool success) {
+        // BK Ok - Check for _value > 0 in second condition, with the overflow check
         if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
             balances[_to] += _value;
             balances[_from] -= _value;
@@ -49,16 +55,19 @@ contract ERC20Impl is ERC20, Base {
         } else { return false; }
     }
 
+    // BK Ok
     function balanceOf(address _owner) constant returns (uint256 balance) {
         return balances[_owner];
     }
 
-    function approve(address _spender, uint256 _value) isRunningOnly validMsgDataLen(20+32) returns (bool success) {
+    // BK Ok
+    function approve(address _spender, uint256 _value) isStartedOnly returns (bool success) {
         allowed[msg.sender][_spender] = _value;
         Approval(msg.sender, _spender, _value);
         return true;
     }
 
+    // BK Ok
     function allowance(address _owner, address _spender) constant returns (uint256 remaining) {
         return allowed[_owner][_spender];
     }
@@ -67,20 +76,16 @@ contract ERC20Impl is ERC20, Base {
     mapping (address => mapping (address => uint256)) allowed;
 
     uint256 public totalSupply;
-    bool    public isRunning = false;
+    bool    public isStarted = false;
 
+    // BK NOTE - This modifier is currently unused
     modifier onlyHolder(address holder) {
         if (balanceOf(holder) == 0) throw;
         _;
     }
 
-    modifier isRunningOnly() {
-        if (!isRunning) throw;
-        _;
-    }
-
-    modifier isNotRunningOnly() {
-        if (isRunning) throw;
+    modifier isStartedOnly() {
+        if (!isStarted) throw;
         _;
     }
 
