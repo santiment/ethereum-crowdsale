@@ -1,0 +1,52 @@
+ # Account                                             EtherBalanceChange                          Token Name
+-- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+ 1 0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e       15.000000000000000000           0.000000000000000000 Account #0 - Miner
+ 2 0xa11aae29840fbb5c86e6fd4cf809eba183aef433        0.000000000000000000           0.000000000000000000 Account #1 - Contract Owner
+ 3 0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976        0.000000000000000000           0.000000000000000000 Account #2 - Admin
+ 4 0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0        0.000000000000000000           0.000000000000000000 Account #3 - Team Group
+ 5 0xa44a08d3f6933c69212114bb66e2df1813651844        0.000000000000000000           0.000000000000000000 Account #4 - Advisors & Friends
+ 6 0xa55a151eb00fded1634d27d1127b4be4627079ea        0.000000000000000000           0.000000000000000000 Account #5
+ 7 0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9        0.000000000000000000           0.000000000000000000 Account #6
+ 8 0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec        0.000000000000000000           0.000000000000000000 Account #7
+ 9 0xa88a05d2b88283ce84c8325760b72a64591279a2        0.000000000000000000           0.000000000000000000 Account #8
+-- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+                                                                                    0.000000000000000000 Total Token Balances
+-- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+
+
+Deploy SAN Contract
+Deploy BalanceStorage Contract
+Deploy AddressList Contract
+Deploy MinMaxWhiteList Contract
+Deploy PresaleBonusVoting Contract
+sanAddress=0x936e75a404fc4ea6aba4d9c3b20ea67abab3188a gas=6000000 gasUsed=1379919 costETH=0.024838542 costUSD=8.349177830796 @ ETH/USD=336.138 gasPrice=18000000000 block=76 txId=0x64144daaae10a03abcd242ef690de17ec1a474dd263370938e4cc6d54aa0ba58
+bsAddress=0xb8c31f47dfba40162326aba12cd577ae5cb2ce99 gas=6000000 gasUsed=98583 costETH=0.001774494 costUSD=0.596474864172 @ ETH/USD=336.138 gasPrice=18000000000 block=76 txId=0xa6434212ac1e8df464c63f1acd4ab2089c8183be64c0b427dae1d726a33e9d3c
+alAddress=0x0a91add9e3e97057980da7826043aab2a2d4c35b gas=6000000 gasUsed=113335 costETH=0.00204003 costUSD=0.68573160414 @ ETH/USD=336.138 gasPrice=18000000000 block=76 txId=0x772f0c883da3adc49a36143496afcaaa250479976e550a9a4f78c463ebd93862
+mmwlAddress=0x821ca8becdbfb00ca55e722908796a375bc2d538 gas=6000000 gasUsed=102195 costETH=0.00183951 costUSD=0.61832921238 @ ETH/USD=336.138 gasPrice=18000000000 block=76 txId=0xfa41867818a99873d242aa84813b11cf67ef4bd1eb7ec6087ccb475c918fd439
+pbvAddress=0x8b97d31ff6bfc0c2fd7a0fff69d6b4bd485a832b gas=6000000 gasUsed=96835 costETH=0.00174303 costUSD=0.58589861814 @ ETH/USD=336.138 gasPrice=18000000000 block=76 txId=0xc0b83da64919d77f86fa8b6fbf1df1a90c356343526f525f8d67bc2d6a3d4411
+ # Account                                             EtherBalanceChange                          Token Name
+-- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+ 1 0xa00af22d07c87d96eeeb0ed583f8f6ac7812827e       25.032235606000000000           0.000000000000000000 Account #0 - Miner
+ 2 0xa11aae29840fbb5c86e6fd4cf809eba183aef433       -0.032235606000000000           0.000000000000000000 Account #1 - Contract Owner
+ 3 0xa22ab8a9d641ce77e06d98b7d7065d324d3d6976        0.000000000000000000           0.000000000000000000 Account #2 - Admin
+ 4 0xa33a6c312d9ad0e0f2e95541beed0cc081621fd0        0.000000000000000000           0.000000000000000000 Account #3 - Team Group
+ 5 0xa44a08d3f6933c69212114bb66e2df1813651844        0.000000000000000000           0.000000000000000000 Account #4 - Advisors & Friends
+ 6 0xa55a151eb00fded1634d27d1127b4be4627079ea        0.000000000000000000           0.000000000000000000 Account #5
+ 7 0xa66a85ede0cbe03694aa9d9de0bb19c99ff55bd9        0.000000000000000000           0.000000000000000000 Account #6
+ 8 0xa77a2b9d4b1c010a22a7c565dc418cef683dbcec        0.000000000000000000           0.000000000000000000 Account #7
+ 9 0xa88a05d2b88283ce84c8325760b72a64591279a2        0.000000000000000000           0.000000000000000000 Account #8
+10 0x936e75a404fc4ea6aba4d9c3b20ea67abab3188a        0.000000000000000000           0.000000000000000000 SAN
+11 0xb8c31f47dfba40162326aba12cd577ae5cb2ce99        0.000000000000000000           0.000000000000000000 BalanceStorage
+12 0x0a91add9e3e97057980da7826043aab2a2d4c35b        0.000000000000000000           0.000000000000000000 AddressList
+13 0x821ca8becdbfb00ca55e722908796a375bc2d538        0.000000000000000000           0.000000000000000000 MinMaxWhiteList
+14 0x8b97d31ff6bfc0c2fd7a0fff69d6b4bd485a832b        0.000000000000000000           0.000000000000000000 PresaleBonusVoting
+-- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+                                                                                    0.000000000000000000 Total Token Balances
+-- ------------------------------------------ --------------------------- ------------------------------ ---------------------------
+
+PASS Deploy SAN Contract
+PASS Deploy BalanceStorage Contract
+PASS Deploy AddressList Contract
+PASS Deploy MinMaxWhiteList Contract
+PASS Deploy PresaleBonusVoting Contract
+

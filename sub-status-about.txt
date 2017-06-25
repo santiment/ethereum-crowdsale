@@ -1,0 +1,22 @@
+
+
+
+P: PAID_UNTIL
+N: NOW
+E: EXPIRE_ON
+
+PNE => CHARGEABLE (P < E)                   : usual case: new period started, can charge
+PEN => CHARGEABLE (P < E)                   : debts for the time PE, thus charge even after expiration
+NPE => PAID (N < P)                         : usual case
+NEP => PAID (N < P) & EXPIRING ([E,N] < P)  : last payment before expiration was just made
+ENP => PAID (N < P) & EXPIRING ([E,N] < P)  : last payment before expiration was just made
+EPN => EXPIRED ([E,P] < N)                  : usual case
+
+
+suggested provider action:
+      PAID: don't charge, provide service
+CHARGEABLE: charge repeatedly until status changes (to PAID or EXPIRED) of charge fails (==> on HOLD_ERROR: on provider's decision IN_SERVICE:Y/N)
+EXPIRED:   don't charge, don't service
+
+
+ToDo: Provider status InService.

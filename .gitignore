@@ -35,3 +35,15 @@ jspm_packages
 
 # Optional REPL history
 .node_repl_history
+
+# Truffle Build
+build
+tt.sh
+
+.DS_Store
+.project
+.settings
+private
+private/*
+audit/test/testchain/geth*
+audit/test/testchain/history*

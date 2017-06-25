@@ -1,0 +1,31 @@
+{
+  "name": "ethereum-crowdsale",
+  "version": "1.0.0",
+  "description": "extended ERC20 token with crowdsale minter",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/santiment/ethereum-crowdsale.git"
+  },
+  "author": "ethernian",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/santiment/ethereum-crowdsale/issues"
+  },
+  "homepage": "https://github.com/santiment/ethereum-crowdsale#readme",
+  "dependencies": {
+    "bignumber.js": "^4.0.2",
+    "bluebird": "^3.5.0",
+    "web3": "^0.19.0"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "chai-bignumber": "^2.0.0"
+  }
+}
