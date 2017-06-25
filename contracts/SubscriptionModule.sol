@@ -43,6 +43,7 @@ contract PaymentListener {
 ///
 /// The default XRateProvider (with id==0) defines exchange rate 1:1 and represents exchange rate of SAN token to itself.
 /// this provider is set by defalult and thus the subscription becomes nominated in SAN.
+//
 contract XRateProvider {
 
     //@dev returns current exchange rate (in form of a simple fraction) from other currency to SAN (f.e. ETH:SAN).
@@ -98,9 +99,15 @@ contract SubscriptionBase {
 contract SubscriptionModule is SubscriptionBase, Base {
     function attachToken(address token) public;
 
+    ///@dev the same like transfer methods, but with recipient's notification
+    ///@param _value amount to transfer
+    ///@param _paymentData is a payment descriptor evaluated by PaymentListener
+    ///@param _to PaymentListener becomes notified and has chance to evaluate incoming payment and reject it.
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success);
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success);
 
+    ///@dev creates subscription offer.
+    ///@dev all times  denominated in currency given by XrateProvider.
     function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) public returns (uint subId);
     function updateSubscriptionOffer(uint offerId, uint _offerLimit) public;
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId);
@@ -293,7 +300,21 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         }
     }
 
-    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor)
+    ///@notice create a new subscription offer.
+    ///@dev only registered service provider is allowed to create offers.
+    ///@dev subscription uses SAN token for payment, but an exact amount to be paid or deposit is calculated using exchange rate from external xrateProvider (previosly registered on platform).
+    ///    This allows to create a subscription bound to another token or even fiat currency.
+    ///@param _pricePerHour - subscription price per hour in SAN
+    ///@param _xrateProviderId - id of external exchange rate provider from subscription currency to SAN; "0" means subscription is priced in SAN natively.
+    ///@param _chargePeriod - time period to charge; subscription can't be charged more often than this period. Time units are native ethereum time, returning by `now`, i.e. seconds.
+    ///@param _expireOn - offer can't be accepted after this time.
+    ///@param _offerLimit - how many subscription are available to created from this offer; there is no magic number for unlimited offer -- use big number instead.
+    ///@param _depositAmount - upfront deposit required for creating a subscription; this deposit becomes fully returned on subscription is over.
+    ///       currently this deposit is not subject of platform fees and will be refunded in full. Next versions of this module can use deposit in case of outstanding payments.
+    ///@param _startOn - a subscription from this offer can't be created before this time. Time units are native ethereum time, returning by `now`, i.e. seconds.
+    ///@param _descriptor - arbitrary bytes as an offer descriptor. This descriptor is copied into subscription and then service provider becomes it passed in notifications.
+    //
+    function createSubscriptionOffer(uint _pricePerHour, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositAmount, uint _startOn, bytes _descriptor)
     public
     onlyRegisteredProvider
     returns (uint subId) {
@@ -302,52 +323,68 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         var (_xrate_n, _xrate_d) = _xrateProviderId == 0 ? (1,1) : XRateProvider(xrateProviders[_xrateProviderId]).getRate();
         assert (_xrate_n > 0 && _xrate_d > 0);
         subscriptions[++subscriptionCounter] = Subscription ({
-            transferFrom    : 0,
-            transferTo      : msg.sender,
-            pricePerHour    : _price,
-            xrateProviderId : _xrateProviderId,
-            initialXrate_n  : _xrate_n,
-            initialXrate_d  : _xrate_d,
-            paidUntil       : 0,
-            chargePeriod    : _chargePeriod,
-            depositAmount   : _depositAmount,
+            transferFrom    : 0,                  // empty transferFrom field means we have an offer, not a subscription
+            transferTo      : msg.sender,         // service provider is a beneficiary of subscripton payments
+            pricePerHour    : _pricePerHour,      // price per hour in SAN (recalculated from base currency if needed)
+            xrateProviderId : _xrateProviderId,   // id of registered exchange rate provider or zero if an offer is nominated in SAN.
+            initialXrate_n  : _xrate_n,           // fraction nominator of the initial exchange rate
+            initialXrate_d  : _xrate_d,           // fraction denominator of the initial exchange rate
+            paidUntil       : 0,                  // service is considered to be paid until this time; no charge is possible while subscription is paid for now.
+            chargePeriod    : _chargePeriod,      // period in seconds (ethereum block time unit) to charge.
+            depositAmount   : _depositAmount,     // deposit required for subscription accept.
             startOn         : _startOn,
             expireOn        : _expireOn,
             execCounter     : _offerLimit,
             descriptor      : _descriptor,
-            onHoldSince     : 0
+            onHoldSince     : 0                   // offer is not on hold by default.
         });
-        return subscriptionCounter;
+        return subscriptionCounter;               // returns an id of the new offer.
     }
 
+    ///@notice updates currently available number of subscription for this offer.
+    ///        other offer's parameter can't be updated because they considered to be a public offer to be reviewed by customers.
+    ///        The service provider should recreate it as a new offer in case of other changes.
+    //
     function updateSubscriptionOffer(uint _offerId, uint _offerLimit) {
         Subscription storage offer = subscriptions[_offerId];
+        assert (_isOffer(offer));
         assert (offer.transferTo == msg.sender); //only Provider is allowed to update the offer.
         offer.execCounter = _offerLimit;
     }
 
+    ///@notice accept given offer and create a new subscription on the base of it.
+    ///
+    ///@dev the service provider (offer.`transferTo`) becomes notified about new subscription by call `onSubNew(newSubId, _offerId)`.
+    ///     It is provider's responsibility to retrieve and store any necessary information about offer and this new subscription. Some of info is only available at this point.
+    ///     The Service Provider can also reject the new subscription by throwing an exception or returning `false` from `onSubNew(newSubId, _offerId)` event handler.
+    ///@param _offerId   - id of the offer to be accepted
+    ///@param _expireOn  - subscription expiration time; no charges are possible behind this time.
+    ///@param _startOn   - subscription start time; no charges are possible before this time.
+    ///                    If the `_startOn` is in the past or is zero, it means start the subscription ASAP.
+    //
     function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
         assert (_startOn < _expireOn);
         Subscription storage offer = subscriptions[_offerId];
         assert (_isOffer(offer));
-        assert(offer.startOn == 0     || offer.startOn <= now);
-        assert(offer.expireOn == 0    || offer.expireOn > now);
-        assert(offer.onHoldSince == 0);
-        assert(offer.execCounter > 0);
-        --offer.execCounter;
+        assert (offer.startOn == 0     || offer.startOn <= now);
+        assert (offer.expireOn == 0    || offer.expireOn > now);
+        assert (offer.onHoldSince == 0);
+        assert (offer.execCounter > 0);
         newSubId = subscriptionCounter + 1;
         //create a clone of the offer...
         Subscription storage newSub = subscriptions[newSubId] = offer;
         //... and adjust some fields specific to subscription
         newSub.transferFrom = msg.sender;
         newSub.execCounter = 0;
-        newSub.paidUntil = newSub.startOn = max(_startOn, now);
+        newSub.paidUntil = newSub.startOn = max(_startOn, now);     //no debts before actual creation time!
         newSub.expireOn = _expireOn;
         newSub.depositAmount = _applyXchangeRate(newSub.depositAmount, newSub);
-        //depositAmount is already stored in the sub, so burn the same amount from customer's account.
+        //depositAmount is now stored in the sub, so burn the same amount from customer's account.
         assert (san._burnForDeposit(msg.sender, newSub.depositAmount));
-        NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
+
+        NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
+        --offer.execCounter;
         return (subscriptionCounter = newSubId);
     }
 
