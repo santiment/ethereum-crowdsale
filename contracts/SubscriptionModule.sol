@@ -15,7 +15,6 @@ import "./ERC20.sol";
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
 // 7 - check Cancel/Hold/Unhold Offer functionality
-// 8 - add event for _returnSubscriptionDesposit
 //ToDo later:
 // 0 - embed force archive subscription into sub cancellation.
 //     (Currently difficult/impossible because low level call is missing return value)
