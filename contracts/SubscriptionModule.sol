@@ -342,8 +342,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
     ///@notice updates currently available number of subscription for this offer.
-    ///        other offer's parameter can't be updated because they considered to be a public offer to be reviewed by customers.
-    ///        The service provider should recreate it as a new offer in case of other changes.
+    ///        Other offer's parameter can't be updated because they are considered to be a public offer reviewed by customers.
+    ///        The service provider should recreate the offer as a new one in case of other changes.
     //
     function updateSubscriptionOffer(uint _offerId, uint _offerLimit) {
         Subscription storage offer = subscriptions[_offerId];
@@ -366,8 +366,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         assert (_startOn < _expireOn);
         Subscription storage offer = subscriptions[_offerId];
         assert (_isOffer(offer));
-        assert (offer.startOn == 0     || offer.startOn <= now);
-        assert (offer.expireOn == 0    || offer.expireOn > now);
+        assert (offer.startOn == 0     || offer.startOn  <= now);
+        assert (offer.expireOn == 0    || offer.expireOn >= now);
         assert (offer.onHoldSince == 0);
         assert (offer.execCounter > 0);
         newSubId = subscriptionCounter + 1;
@@ -381,7 +381,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         newSub.depositAmount = _applyXchangeRate(newSub.depositAmount, newSub);
         //depositAmount is now stored in the sub, so burn the same amount from customer's account.
         assert (san._burnForDeposit(msg.sender, newSub.depositAmount));
-        assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId));
+        assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId)); //service provider can still reject the new subscription here
 
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         --offer.execCounter;
