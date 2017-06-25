@@ -53,34 +53,36 @@ contract XRateProvider {
     function getCode() returns (string);
 }
 
+
+//@notice data structure for SubscriptionModule
 contract SubscriptionBase {
     enum Status {OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
 
+    //@dev subscription and subscription offer use the same structure. Offer is technically a template for subscription.
     struct Subscription {
-        address transferFrom;
-        address transferTo;
-        uint pricePerHour;
-        uint32 initialXrate_n; //nominator
-        uint32 initialXrate_d; //denominator
-        uint16 xrateProviderId;
-        uint paidUntil;
-        uint chargePeriod;
-        uint depositAmount;
+        address transferFrom;   // customer (unset in subscription offer)
+        address transferTo;     // service provider
+        uint pricePerHour;      // price in SAN per hour (possibly recalculated using exchange rate)
+        uint32 initialXrate_n;  // nominator
+        uint32 initialXrate_d;  // denominator
+        uint16 xrateProviderId; // id of a registered exchange rate provider
+        uint paidUntil;         // subscription is paid until time
+        uint chargePeriod;      // subscription can't be charged more often than this period
+        uint depositAmount;     // upfront deposit on creating subscription (possibly recalculated using exchange rate)
 
-        uint startOn;
-        uint expireOn;
-        uint execCounter;
-        bytes descriptor;
-        uint onHoldSince;
+        uint startOn;           // for offer: can't be accepted before  <startOn> ; for subscription: can't be charged before <startOn>
+        uint expireOn;          // for offer: can't be accepted after  <expireOn> ; for subscription: can't be charged after  <expireOn>
+        uint execCounter;       // for offer: max num of subscriptions available  ; for subscription: num of charges made.
+        bytes descriptor;       // subscription payload (subject): evaluated by service provider.
+        uint onHoldSince;       // subscription: on-hold since time or 0 if not onHold. offer: unused: //ToDo: to be implemented
     }
 
     struct Deposit {
-        uint value;
-        address owner;
-        bytes descriptor;
+        uint value;         // value on deposit
+        address owner;      // usually a customer
+        bytes descriptor;   // service related descriptor to be evaluated by service provider
     }
 
-    //ToDo: change arg order
     event NewSubscription(address customer, address service, uint offerId, uint subId);
     event NewDeposit(uint depositId, uint value, address sender);
     event NewXRateProvider(address addr, uint16 xRateProviderId);
@@ -88,6 +90,7 @@ contract SubscriptionBase {
 
 }
 
+///@dev interface for SubscriptionModule
 contract SubscriptionModule is SubscriptionBase, Base {
     function attachToken(address token) public;
 
@@ -139,6 +142,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
 }
 
+//@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
