@@ -59,7 +59,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:3300000})
             .then( _instance =>{
                 san = _instance;
-                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:3300000})
+                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:3400000})
                     .then(_instance => {
                         sub = _instance;
                         return san.attachSubscriptionModule(sub.address, {from:PLATFORM_OWNER});

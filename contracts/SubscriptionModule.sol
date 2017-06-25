@@ -123,7 +123,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
     function holdSubscriptionOffer(uint offerId) public returns (bool success);
     function unholdSubscriptionOffer(uint offerId) public returns (bool success);
-    function cancelSubscriptionOffer(uint offerId) public returns(bool);
+    function cancelSubscriptionOffer(uint offerId) public returns (bool);
 
     function paybackSubscriptionDeposit(uint subId);
     function createDeposit(uint _value, bytes _descriptor) public returns (uint subId);
@@ -272,11 +272,11 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
         assert (sub.transferTo == msg.sender); //only Service Provider is allowed to postpone the DueDate
-        if (sub.paidUntil >= newDueDate) { return false; }
-        else {
+        if (sub.paidUntil < newDueDate) {
             sub.paidUntil = newDueDate;
             return true;
-        }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     function currentStatus(uint subId) public constant returns(Status status) {
@@ -396,7 +396,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice cancel an offer given by `offerId`.
     ///@dev sets offer.`expireOn` to `expireOn`.
     //
-    function cancelSubscriptionOffer(uint offerId) public returns(bool) {
+    function cancelSubscriptionOffer(uint offerId) public returns (bool) {
         Subscription storage offer = subscriptions[offerId];
         assert (_isOffer(offer));
         assert (offer.transferTo == msg.sender || owner == msg.sender); //only service provider or platform owner is allowed to cancel the offer
@@ -404,8 +404,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             offer.expireOn = now;
             OfferCanceled(offerId);
             return true;
-        } else {return false;}
-    }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
+  }
 
 
     ///@notice cancel an subscription given by `subId` (a graceful version).
@@ -494,7 +495,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             offer.onHoldSince = now;
             OfferOnHold(offerId, true);
             return true;
-        } else { return false; }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     // resume currently on-hold offer.
@@ -506,7 +508,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             offer.onHoldSince = 0;
             OfferOnHold(offerId, false);
             return true;
-        } else { return false; }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     // a service can allow/disallow a hold/unhold request
@@ -519,7 +522,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             sub.onHoldSince = now;
             SubOnHold(subId, true);
             return true;
-        } else { return false; }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     // a service can allow/disallow a hold/unhold request
@@ -533,7 +537,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             sub.onHoldSince = 0;
             SubOnHold(subId, false);
             return true;
-        } else { return false; }
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
     }
 
     function createDeposit(uint _value, bytes _descriptor) public returns (uint subId) {
