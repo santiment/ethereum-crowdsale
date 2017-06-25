@@ -31,7 +31,7 @@ contract TestableProvider is PaymentListener, SubscriptionBase, Base {
     }
 
     function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool) {
-        var (transferFrom, transferTo, pricePerHour, chargePeriod, startOn, descriptor) = sub.subscriptionDetails(subId);
+        var (transferFrom, transferTo, pricePerHour, initialXrate_n, initialXrate_d, xrateProviderId, chargePeriod, startOn, descriptor) = sub.subscriptionDetails(subId);
         assert (transferFrom == caller); //accept hold/unhold requests only from subscription owner.
 
         _assertSubStatus(subId);

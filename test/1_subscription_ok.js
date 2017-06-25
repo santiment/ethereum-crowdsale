@@ -111,10 +111,10 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
 
 
     [
-        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#1') },
-        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#2') },
-        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#3') },
-        { price:$an(10), xrateProviderId:0, initialXrate:1, chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#4') }
+        { price:$an(10), xrateProviderId:0, initialXrate:[1,1], chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#1') },
+        { price:$an(10), xrateProviderId:0, initialXrate:[1,1], chargePeriod:10, expireOn:41, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#2') },
+        { price:$an(10), xrateProviderId:0, initialXrate:[1,1], chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#3') },
+        { price:$an(10), xrateProviderId:0, initialXrate:[1,1], chargePeriod:10, expireOn:51, offerLimit:5, depositAmount:$an(10), startOn:101, descriptor:web3.toHex('sub#4') }
     ].forEach( (offerDef, i) => {
         let offerId = i+1;
         it('should create a valid offer #'+i, function() {
@@ -134,7 +134,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 transferTo     : myProvider.address,
                 pricePerHour   : offerDef.price,
                 xrateProviderId: offerDef.xrateProviderId,
-                initialXrate    : offerDef.initialXrate,
+                initialXrate_n : offerDef.initialXrate[0],
+                initialXrate_d : offerDef.initialXrate[1],
                 paidUntil      : 0,
                 chargePeriod   : offerDef.chargePeriod,
                 depositAmount  : offerDef.depositAmount,

@@ -61,8 +61,8 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     //
     ///@dev used as a default XRateProvider (id==0) by subscription module.
     ///@notice returns always 1 because exchange rate of the token to itself is always 1.
-    function getRate() returns(uint)          { return 1;      }
-    function getCode() public returns(string) { return symbol; }
+    function getRate() returns(uint32 ,uint32) { return (1,1);  }
+    function getCode() public returns(string)  { return symbol; }
 
 
     //==== Interface ERC20ModuleSupport: Subscription, Deposit and Payment Support =====
