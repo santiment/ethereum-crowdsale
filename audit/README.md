@@ -1,8 +1,19 @@
 # Santiment Crowdsale Contract Audit
 
 
-## Initial Review
+## Code Review
 
+Details are in:
+
+* [x] [Base](Base.md)
+* [x] [ERC20](ERC20.md)
+* [ ] [SAN](SAN.md)
+* [ ] [CrowdsaleMinter](CrowdsaleMinter.md)
+* [ ] [SubscriptionModule](SubscriptionModule.md)
+
+<br />
+
+### Initial Review
 Comments from initial review of [9394bf3aaff84fc03c0341a5eedc59b02af95c36](https://github.com/santiment/ethereum-crowdsale/tree/9394bf3aaff84fc03c0341a5eedc59b02af95c36):
 
 * \#1 LOW IMPORTANCE CrowdsaleMinter TOKEN should be lowercase as it is not a constant
@@ -22,3 +33,13 @@ Comments from initial review of [9394bf3aaff84fc03c0341a5eedc59b02af95c36](https
 * \#14 LOW IMPORTANCE CrowdsaleMinter `isAdmin` is so similar in function to `isOwner` and should probably be merged into `isOwner` to reduce complexity
 * \#15 MEDIUM IMPORTANCE * Create a script for monitoring the state of your contracts and events logged - [example](https://github.com/openanx/OpenANXToken/blob/master/scripts/getOpenANXTokenDetails.sh) and [sample output](https://github.com/openanx/OpenANXToken/blob/master/scripts/Main_20170625_015900.txt)
 * \#16 LOW IMPORTANCE There are uses of both `uint` and `uint256`. Choose one and stick with it, for consistency
+
+### Second Review
+
+
+
+<br />
+
+<br />
+
+(c) BokkyPooBah / Bok Consulting Pty Ltd for Santiment - Jun 25 2017

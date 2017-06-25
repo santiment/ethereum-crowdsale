@@ -436,3 +436,9 @@ contract CrowdsaleMinter {
 
 }// CrowdsaleMinter
 ```
+
+<br />
+
+<br />
+
+(c) BokkyPooBah / Bok Consulting Pty Ltd for Santiment - Jun 25 2017

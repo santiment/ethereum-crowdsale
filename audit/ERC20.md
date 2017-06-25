@@ -32,7 +32,7 @@ contract ERC20ModuleSupport {
 
 contract ERC20Impl is ERC20, Base {
 
-    // BK Ok
+    // BK Ok - Overflow and underflow checked
     function transfer(address _to, uint256 _value) isStartedOnly returns (bool success) {
         // BK Ok - Check for _value > 0 in second condition, with the overflow check
         if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
@@ -43,7 +43,7 @@ contract ERC20Impl is ERC20, Base {
         } else { return false; }
     }
 
-    // BK Ok
+    // BK Ok - Overflow and underflow checked
     function transferFrom(address _from, address _to, uint256 _value) isStartedOnly returns (bool success) {
         // BK Ok - Check for _value > 0 in second condition, with the overflow check
         if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
@@ -91,3 +91,9 @@ contract ERC20Impl is ERC20, Base {
 
 }
 ```
+
+<br />
+
+<br />
+
+(c) BokkyPooBah / Bok Consulting Pty Ltd for Santiment - Jun 25 2017

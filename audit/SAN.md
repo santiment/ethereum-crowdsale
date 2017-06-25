@@ -6,7 +6,7 @@ pragma solidity ^0.4.11;
 import "./ERC20.sol";
 import "./SubscriptionModule.sol";
 
-contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
+contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     string public constant name     = "SANtiment network token";
     string public constant symbol   = "SAN";
@@ -14,27 +14,67 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     address CROWDSALE_MINTER = 0x00000000;
     address public SUBSCRIPTION_MODULE = 0x00000000;
-    address public admin;     //admin should be a multisig contract implementing advanced sign/recovery strategies
     address public beneficiary;
 
-    //function subscriptionModule() constant returns(address) { return SUBSCRIPTION_MODULE; }
+    uint public PLATFORM_FEE_PER_10000 = 1; //0.01%
+    uint public totalOnDeposit;
+    uint public totalInCirculation;
 
-    function SAN(){
-        beneficiary = admin = msg.sender;
+    ///@dev constructor
+    function SAN() {
+        // BK NOTE Owner is already assigned in the Owned constructor
+        beneficiary = owner = msg.sender;
     }
 
-    function setBeneficiary(address newBeneficiary) external only(admin) {
+    // ------------------------------------------------------------------------
+    // Don't accept ethers
+    // ------------------------------------------------------------------------
+    function () {
+        throw;
+    }
+
+    //======== SECTION Configuration: Owner only ========
+    //
+    ///@notice set beneficiary - the account receiving platform fees.
+    function setBeneficiary(address newBeneficiary)
+    external
+    only(owner) {
         beneficiary = newBeneficiary;
     }
 
-    function attachSubscriptionModule(SubscriptionModule subModule) public {
+
+    ///@notice attach module managing subscriptions. if subModule==0x0, then disables subscription functionality for this token.
+    /// detached module can usually manage subscriptions, but all operations changing token balances are disabled.
+    function attachSubscriptionModule(SubscriptionModule subModule)
+    external
+    only(owner) {
         SUBSCRIPTION_MODULE = subModule;
-        subModule.attachToken(this);
+        if (address(subModule) > 0) subModule.attachToken(this);
     }
 
-    //==== Subscription, Deposit and Payment Support =====
+    ///@notice set platform fee denominated in 1/10000 of SAN token. Thus "1" means 0.01% of SAN token.
+    function setPlatformFeePer10000(uint newFee)
+    external
+    only(owner) {
+        require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
+        PLATFORM_FEE_PER_10000 = newFee;
+    }
 
-    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public
+
+    //======== Interface XRateProvider: a trivial exchange rate provider. Rate is 1:1 and SAN symbol as the code
+    //
+    ///@dev used as a default XRateProvider (id==0) by subscription module.
+    ///@notice returns always 1 because exchange rate of the token to itself is always 1.
+    function getRate() returns(uint32 ,uint32) { return (1,1);  }
+    function getCode() public returns(string)  { return symbol; }
+
+
+    //==== Interface ERC20ModuleSupport: Subscription, Deposit and Payment Support =====
+    ///
+    ///@dev used by subscription module to operate on token balances.
+    ///@param msg_sender should be an original msg.sender provided to subscription module.
+    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender)
+    public
     onlyTrusted
     returns(bool success) {
         success = _from != msg_sender && allowed[_from][msg_sender] >= _value;
@@ -49,6 +89,8 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         return success;
     }
 
+    ///@dev used by subscription module to operate on token balances.
+    ///@param msg_sender should be an original msg.sender provided to subscription module.
     function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender)
     public
     onlyTrusted
@@ -71,16 +113,22 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         return _value * PLATFORM_FEE_PER_10000 / 10000;
     }
 
-    function _mintFromDeposit(address owner, uint amount) public
+    ///@notice used by subscription module to re-create token from returning deposit.
+    ///@dev a subscription module is responsible to correct deposit management.
+    function _mintFromDeposit(address owner, uint amount)
+    public
     onlyTrusted {
         balances[owner] += amount;
         totalOnDeposit -= amount;
         totalInCirculation += amount;
     }
 
-    function _burnForDeposit(address owner, uint amount) public
+    ///@notice used by subscription module to burn token while creating a new deposit.
+    ///@dev a subscription module is responsible to create and maintain the deposit record.
+    function _burnForDeposit(address owner, uint amount)
+    public
     onlyTrusted
-    returns (bool success){
+    returns (bool success) {
         if (balances[owner] >= amount) {
             balances[owner] -= amount;
             totalOnDeposit += amount;
@@ -89,32 +137,27 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         } else { return false; }
     }
 
-    uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
-    uint public totalOnDeposit;
-    uint public totalInCirculation;
-
-    function setPlatformFeePer10000(uint newFee) external only(admin) {
-        require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
-        PLATFORM_FEE_PER_10000 = newFee;
-    }
-
-    //ToDo: moveThis!
-    //implement this token as trivial 1:1 exchange rate provider.
-    function getRate() returns(uint)          { return 1;      }
-    function getCode() public returns(string) { return symbol; }
-
     //========= Crowdsale Only ===============
+    ///@notice mint new token for given account in crowdsale stage
+    ///@dev allowed only if token not started yet and only for registered minter.
+    ///@dev tokens are become in circulation after token start.
     function mint(uint amount, address account)
     onlyCrowdsaleMinter
-    isNotRunningOnly
+    isNotStartedOnly
     {
         totalSupply += amount;
         balances[account]+=amount;
     }
 
-    function start() isNotRunningOnly only(admin) {
-        isRunning = true;
+    ///@notice start normal operation of the token. No minting is possible after this point.
+    function start()
+    isNotStartedOnly
+    only(owner) {
+        totalInCirculation = totalSupply;
+        isStarted = true;
     }
+
+    //========= SECTION: Modifier ===============
 
     modifier onlyCrowdsaleMinter() {
         if (msg.sender != CROWDSALE_MINTER) throw;
@@ -126,8 +169,22 @@ contract SAN is ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
         _;
     }
 
+    ///@dev token not started means minting is possible, but usual token operations are not.
+    modifier isNotStartedOnly() {
+        if (isStarted) throw;
+        _;
+    }
+
     enum PaymentStatus {OK, BALANCE_ERROR, APPROVAL_ERROR}
+    ///@notice event issued on any fee based payment (made of failed).
+    ///@param subId - related subscription Id if any, or zero otherwise.
     event Payment(address _from, address _to, uint _value, uint _fee, address caller, PaymentStatus status, uint subId);
 
-}
+}//contract SAN
 ```
+
+<br />
+
+<br />
+
+(c) BokkyPooBah / Bok Consulting Pty Ltd for Santiment - Jun 25 2017
