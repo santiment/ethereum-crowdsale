@@ -7,6 +7,8 @@ Comments from initial review of [9394bf3aaff84fc03c0341a5eedc59b02af95c36](https
 
 * \#1 LOW IMPORTANCE CrowdsaleMinter TOKEN should be lowercase as it is not a constant
 * \#2 LOW IMPORTANCE CrowdsaleMinter Use the Owner/Owned pattern for ownership and transfer of ownership, including `acceptOwnership()` - [example](https://github.com/bokkypoobah/RAREPeperiumToken/blob/master/contracts/RareToken.sol#L11-L35)
+  * Jun 25 2017 Included in Base
+  * [ ] Check whether the class inherited correctly
 * \#3 LOW-MEDIUM IMPORTANCE * `function ()` that **throw**s should be implemented to prevent ETH being accepted by the contracts - [example](https://github.com/bokkypoobah/RAREPeperiumToken/blob/master/contracts/RareToken.sol#L139-L144)
 * \#4 LOW-MEDIUM IMPORANCE * Allow owner to withdraw tokens accidentally sent to the contracts - [example](https://github.com/openanx/OpenANXToken/blob/master/contracts/OpenANXToken.sol#L451-L458)
 * \#5 LOW IMPORTANCE CrowdsaleMinter `total_received_amount` -> `totalReceivedAmount`
