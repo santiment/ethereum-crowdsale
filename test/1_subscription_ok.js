@@ -71,7 +71,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         return TestableProvider.new(sub.address,PROVIDER_OWNER, {from:CREATOR})
                             .then(_instance => {
                                 myProvider=_instance;
-                                return sub.enableServiceProvider(_instance.address,{from:PLATFORM_OWNER})
+                                return sub.enableServiceProvider(_instance.address,"0x12345",{from:PLATFORM_OWNER})
                             })
                     })
             });

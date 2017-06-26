@@ -178,8 +178,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function registerXRateProvider(XRateProvider addr) external returns (uint16 xrateProviderId);
 
     ///@dev ***** Service provider (payment receiver) *****
-    function enableServiceProvider(ServiceProvider addr) external;
-    function disableServiceProvider(ServiceProvider addr) external;
+    function enableServiceProvider(ServiceProvider addr, bytes moreInfo) external;
+    function disableServiceProvider(ServiceProvider addr, bytes moreInfo) external;
 
 
     ///@dev ***** convenience subscription getter *****
@@ -205,6 +205,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
     enum PaymentStatus {OK, BALANCE_ERROR, APPROVAL_ERROR}
     event Payment(address _from, address _to, uint _value, uint _fee, address sender, PaymentStatus status, uint subId);
+    event ServiceProviderEnabled(address addr, bytes moreInfo);
+    event ServiceProviderDisabled(address addr, bytes moreInfo);
 
 } //SubscriptionModule
 
@@ -273,14 +275,16 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
 
     ///@dev register a new service provider to the platform.
-    function enableServiceProvider(ServiceProvider addr) external only(owner) {
+    function enableServiceProvider(ServiceProvider addr, bytes moreInfo) external only(owner) {
         providerRegistry[addr] = true;
+        ServiceProviderEnabled(addr, moreInfo);
     }
 
 
     ///@dev de-register the service provider with given `addr`.
-    function disableServiceProvider(ServiceProvider addr) external only(owner) {
+    function disableServiceProvider(ServiceProvider addr, bytes moreInfo) external only(owner) {
         delete providerRegistry[addr];
+        ServiceProviderDisabled(addr, moreInfo);
     }
 
 
