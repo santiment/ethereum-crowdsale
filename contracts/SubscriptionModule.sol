@@ -404,7 +404,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
-    ///@dev return current status of subscription with gived id;
+    ///@dev return current status as a name of a subscription (or an offer) with given id;
     function state(uint subOrOfferId) public constant returns(string state) {
         Subscription subOrOffer = subscriptions[subOrOfferId];
         return _isOffer(subOrOffer)
@@ -413,7 +413,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
-    ///@dev return current status of subscription with gived id;
+    ///@dev return current status as a code of a subscription (or an offer) with given id;
     function stateCode(uint subOrOfferId) public constant returns(uint stateCode) {
         Subscription subOrOffer = subscriptions[subOrOfferId];
         return _isOffer(subOrOffer)
