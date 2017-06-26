@@ -21,8 +21,8 @@ const web3UtilApi = require('web3/lib/utils/utils.js');
 const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(blockNumber||web3.eth.blockNumber).timestamp;
-const SUB_STATUS = {OFFER:0, PAID:1, CHARGEABLE:2, ON_HOLD:3, CANCELED:4, EXPIRED:5, ARCHIVED:6}
-const SUB_STATUS_REV = {0:'OFFER', 1:'PAID', 2:'CHARGEABLE', 3:'ON_HOLD', 4:'CANCELED', 5:'EXPIRED', 6:'ARCHIVED'}
+const SUB_STATUS = {NOT_EXIST:0, OFFER:1, PAID:2, CHARGEABLE:3, ON_HOLD:4, CANCELED:5, EXPIRED:6, ARCHIVED:7}
+const SUB_STATUS_REV = {0:'NOT_EXIST', 1:'OFFER', 2:'PAID', 3:'CHARGEABLE', 4:'ON_HOLD', 5:'CANCELED', 6:'EXPIRED', 7:'ARCHIVED'}
 const SECONDS_IN_HOUR = 60*60;
 
 contract('san', function(accounts){

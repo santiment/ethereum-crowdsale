@@ -57,7 +57,7 @@ contract XRateProvider {
 
 //@notice data structure for SubscriptionModule
 contract SubscriptionBase {
-    enum Status {OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
+    enum Status {NOT_EXIST, OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
 
     //@dev subscription and subscription offer use the same structure. Offer is technically a template for subscription.
     struct Subscription {
@@ -303,7 +303,10 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
     function _currentStatus(Subscription storage sub) internal constant returns(Status status) {
-        if (sub.onHoldSince>0) {
+        if (sub.transferTo == 0) {
+            //every subscription or offer has this field set. If not -- there is no record to given id at all.
+            return Status.NOT_EXIST;
+        } else if (sub.onHoldSince>0) {
             return Status.ON_HOLD;
         } else if (sub.transferFrom==0) {
             return Status.OFFER;
@@ -568,10 +571,10 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function claimSubscriptionDeposit(uint subId) public {
         Subscription storage sub = subscriptions[subId];
+        assert (_isNotOffer(sub));
         assert (_currentStatus(sub) == Status.EXPIRED);
         assert (sub.transferFrom == msg.sender);
         assert (sub.depositAmount > 0);
-        assert (_isNotOffer(sub));
         _returnSubscriptionDesposit(subId, sub);
     }
 
