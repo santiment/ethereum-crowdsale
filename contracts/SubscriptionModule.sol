@@ -10,19 +10,14 @@ import "./ERC20.sol";
 //     but it should return "false" on error if called from other contract (isContract(msg.sender)==true).
 //     Reason: thrown exception are easier to see in wallets, returned boolean values are easier to evaluate in the code of the calling contract.
 //
+// 3 - Service providers are responsible for firing events in case of offer changes;
+//     it is theirs decision to inform DApps about offer changes or not.
+//
 //ToDo:
 // 4 - check: all functions for access modifiers: _from, _to, _others
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
-// 7 - check Cancel/Hold/Unhold Offer functionality
 // 8 - validate linking modules and deployment process: attachToken(address token) public
-// 9 - validate function subscriptionState(uint subId) public constant
-//ToDo later:
-// 0 - embed force archive subscription into sub cancellation.
-//     (Currently difficult/impossible because low level call is missing return value)
-//
-//Ask:
-// Given: subscription one year:
 
 
 ///@dev an interface to implement by Service Provider contract to be notified about subscription changes (in-Tx notification).
