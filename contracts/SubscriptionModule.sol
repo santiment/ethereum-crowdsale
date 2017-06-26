@@ -163,19 +163,33 @@ contract SubscriptionModule is SubscriptionBase, Base {
 //@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
-
+    ///@dev list of all registered service provider contracts impelmented as a map for better lookup.
     mapping (address=>bool) public providerRegistry;
+
+    ///@dev all subscriptions and offers (incl. ARCHIVED).
     mapping (uint => Subscription) public subscriptions;
+
+    ///@dev all active simple deposits gived by depositId.
     mapping (uint => Deposit) public deposits;
+
+    ///@dev addresses of registered exchange rate providers.
     XRateProvider[] public xrateProviders;
+
+    ///@dev ongoing counter for subscription ids starting from 1.
+    ///     Current value represents an id of last created subscription.
     uint public subscriptionCounter = 0;
+
+    ///@dev ongoing counter for simple deposit ids starting from 1.
+    ///     Current value represents an id of last created deposit.
     uint public depositCounter = 0;
 
+    ///@dev Token contract with ERC20ModuleSupport addon.
+    ///     Subscription Module operates on its balances via ERC20ModuleSupport interface as trusted module.
     ERC20ModuleSupport san;
 
-    // ------------------------------------------------------------------------
-    // Don't accept ethers
-    // ------------------------------------------------------------------------
+    // *************************************************
+    // *     reject all ether sent to this contract    *
+    // *************************************************
     function () {
         throw;
     }
@@ -225,6 +239,12 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     // *           single payment methods              *
     // *************************************************
 
+    ///@notice makes single payment to service provider.
+    ///@param _value - amount of SAN token to sent
+    ///@param _paymentData - 'payment purpose' code usually issued by service provider to customer before payment.
+    ///@param _to - service provider contract
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
+    //
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
         if (san._fulfillPayment(msg.sender, _to, _value, 0, msg.sender)) {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
@@ -235,6 +255,13 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
+    ///@notice makes single preapproved payment to service provider. An amount must be already preapproved by payment sender to recepient.
+    ///@param _value - amount of SAN token to sent
+    ///@param _paymentData - 'payment purpose' code usually issued by service provider to customer before payment.
+    ///@param _from - sender of the payment (other than msg.sender)
+    ///@param _to - service provider contract
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
+    //
     function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
         if (san._fulfillPreapprovedPayment(_from, _to, _value, msg.sender)) {
             // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
@@ -286,7 +313,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        At least the platform owner has an incentive to get fee and thus can trigger the function.
     ///        An execution fails if subscription is not in status `CHARGEABLE`.
     ///@param subId - subscription to be charged.
-    ///@return `true` if subscription is charged, `false` if not (or exception thrown if the caller is not a contract).
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function executeSubscription(uint subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
@@ -312,6 +339,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        This function can be used by service provider to `give away` some service time for free.
     ///@param subId - id of subscription to be postponed.
     ///@param newDueDate - new `paidUntil` datetime; require `newDueDate > paidUntil`.
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success){
         Subscription storage sub = subscriptions[subId];
@@ -444,6 +472,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     ///@notice cancel an offer given by `offerId`.
     ///@dev sets offer.`expireOn` to `expireOn`.
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function cancelSubscriptionOffer(uint offerId) public returns (bool) {
         Subscription storage offer = subscriptions[offerId];
@@ -501,6 +530,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice place an active offer on hold; it means no subscriptions can be created from this offer.
     ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
     ///@param offerId - id of the offer to be placed on hold.
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function holdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
@@ -517,6 +547,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice resume on-hold offer; subscriptions can be created from this offer again (if other conditions are met).
     ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
     ///@param offerId - id of the offer to be resumed.
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function unholdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
@@ -534,6 +565,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        If call is originated by customer the service provider can reject the request.
     ///        A subscription on hold will not be charged. The service is usually not provided as well.
     ///        During hold time a subscription preserve remaining paid time period, which becomes available after unhold.
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function holdSubscription (uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
@@ -554,6 +586,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        If call is originated by customer the service provider can reject the request.
     ///        A subscription on hold will not be charged. The service is usually not provided as well.
     ///        During hold time a subscription preserve remaining paid time period, which becomes available after unhold.
+    ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
     function unholdSubscription(uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
