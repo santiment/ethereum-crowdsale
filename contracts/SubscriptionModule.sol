@@ -162,8 +162,6 @@ contract SubscriptionModule is SubscriptionBase, Base {
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
-    uint public totalOnDeposit;
-    uint public totalInCirculation;
     ERC20ModuleSupport san;
 
     function SubscriptionModuleImpl() {
