@@ -22,10 +22,10 @@ const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(blockNumber||web3.eth.blockNumber).timestamp;
 
-const SUB_STATUS = {NOT_EXIST:0, BEFORE_START:1, PAID:2, CHARGEABLE:3, ON_HOLD:4, CANCELED:5, EXPIRED:6, FINALIZED:7}
-const SUB_STATUS_REV = {0:'NOT_EXIST', 1:'BEFORE_START', 2:'PAID', 3:'CHARGEABLE', 4:'ON_HOLD', 5:'CANCELED', 6:'EXPIRED', 7:'FINALIZED'}
-const OFFER_STATUS = {NOT_EXIST:0, BEFORE_START:1, ACTIVE:2, SOLD_OUT:3, ON_HOLD:4, EXPIRED:6}
-const OFFER_STATUS_REV = {0:"NOT_EXIST", 1:"BEFORE_START", 2:"ACTIVE", 3:"SOLD_OUT", 4:"ON_HOLD", 5:"EXPIRED"}
+const SUB_STATUS_CODES   = { NOT_EXIST:0,           BEFORE_START:1,              PAID:2,      CHARGEABLE:3,            ON_HOLD:4,         CANCELED:5,          EXPIRED:6,         FINALIZED:7 };
+const SUB_STATUS         = { NOT_EXIST:'NOT_EXIST', BEFORE_START:'BEFORE_START', PAID:'PAID', CHARGEABLE:'CHARGEABLE', ON_HOLD:'ON_HOLD', CANCELED:'CANCELED', EXPIRED:'EXPIRED', FINALIZED:'FINALIZED' };
+const OFFER_STATUS_CODES = { NOT_EXIST:0,           BEFORE_START:1,              ACTIVE:2,        SOLD_OUT:3,          ON_HOLD:4,         EXPIRED:6 };
+const OFFER_STATUS       = { NOT_EXIST:'NOT_EXIST', BEFORE_START:'BEFORE_START', ACTIVE:'ACTIVE', SOLD_OUT:'SOLD_OUT', ON_HOLD:'ON_HOLD', EXPIRED:'EXPIRED' };
 
 const SECONDS_IN_HOUR = 60*60;
 
@@ -133,7 +133,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 provider : myProvider.address,
                 offerId  : offerId
             })))
-            .then(evt => assertSubscription(offerId, i+': Check: newly created subscription #'+offerId, (s) => ({
+            .then(evt => assertSubscription(offerId, i+': Check: newly created offer #'+offerId, (s) => ({
                 transferFrom   : 0,
                 transferTo     : myProvider.address,
                 pricePerHour   : offerDef.price,
@@ -148,7 +148,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 execCounter    : offerDef.offerLimit,
                 descriptor     : offerDef.descriptor,
                 onHoldSince    : 0,
-                status: OFFER_STATUS.ACTIVE
+                state: OFFER_STATUS.ACTIVE
             })));
         });
     });
@@ -213,15 +213,15 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.CHARGEABLE],
        [5, USER_01, SUB_STATUS.CHARGEABLE,    AUTO, SUB_STATUS.CHARGEABLE, SUB_STATUS.PAID      ]
     ].forEach( (chargeDef, i) => {
-        let [subId, user, status0, waitSec, status1, status2] = chargeDef;
+        let [subId, user, state0, waitSec, state1, state2] = chargeDef;
         it(i+':charging subscription id:'+subId, function() {
             return assertSubscription(subId, i+': Check: PreCondition', (s0)=>({
-                status: status0
+                state: state0
             })).then(s0 => {
                 let delay = waitSec != AUTO ? waitSec : s0.paidUntil.minus(ethNow()).toNumber()+1;
                 return evm_increaseTime(delay)
                     .then(tx => assertSubscription(s0, i+': Check: after wait and before charge', (s1) => ({
-                        status: status1
+                        state: state1
                     })));
             }).then(s0 => {
                 if (user === __FROM)    user = s0.transferFrom;
@@ -237,7 +237,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                         caller     : user
                      })))
                     .then(e => assertSubscription(s0, i+': Check: after execute subscription', (s1) => ({
-                        status      : status2,
+                        state      : state2,
                         paidUntil   : s0.paidUntil.plus(s0.chargePeriod),
                         execCounter : s0.execCounter.plus(1),
                         balanceFrom : s0.balanceFrom.minus(s0.amountToPay),
@@ -253,7 +253,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         let [subId] = testData;
         it(i+':cancel subscription id:'+subId, function() {
             return assertSubscription(subId, i+':Check: PreCondition', (s0)=>({
-                status : SUB_STATUS.PAID
+                state : SUB_STATUS.PAID
             })).then(s0 => {
                 return sub.cancelSubscription(subId, {from:s0.transferFrom})  //method under test
                 .then(tx => assertLogEvent(tx, abi_SubCanceled, i+': Check: cancel event', (e) =>({
@@ -262,20 +262,20 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                  })))
                 .then(e => assertSubscription(s0, i+':Check: after sub canceled', (s1)=>({
                     expireOn : s1.paidUntil,
-                    status : SUB_STATUS.CANCELED
+                    state : SUB_STATUS.CANCELED
                 })));
             }).then(s0 => {
                 let delay=BigNumber.max(s0.expireOn.minus(ethNow()), s0.paidUntil.minus(ethNow())).plus(1);
                 return evm_increaseTime(delay).then(evm_mine)
                 .then(tx => assertSubscription(s0, i+':Check: after waiting for paid period is over', (s1)=> ({
-                    status : SUB_STATUS.EXPIRED
+                    state : SUB_STATUS.EXPIRED
                 })));
             }).then(s0 => {
                 return sub.claimSubscriptionDeposit(subId,{from:s0.transferFrom}) //method under test
                 .then(tx => assertSubscription(s0, i+':Check: deposit is paid back', (s1)=>({
                     balanceFrom   : s0.balanceFrom.plus(s0.depositAmount),
                     depositAmount : 0,
-                    status : SUB_STATUS.FINALIZED
+                    state : SUB_STATUS.FINALIZED
                 })));
             });
        });
@@ -318,24 +318,24 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     it('subscription #7: CHARGEABLE ==> [hold/wait/unhold] ==> EXPIRED', function() {
         let [subId, user] = [7, USER_01];
         return assertSubscription(subId, 'Check: PreCondition', (s0)=>({
-            status: SUB_STATUS.CHARGEABLE
+            state: SUB_STATUS.CHARGEABLE
         }))
         .then(prevState => evm_increaseTime(10).then(evm_mine)
             .then(()=> assertSubscription(prevState, 'wait before hold', (s0)=> ({
-                status: SUB_STATUS.CHARGEABLE
+                state: SUB_STATUS.CHARGEABLE
             }))))
         .then(prevState => sub.holdSubscription(subId, {from:user})
             .then(tx=> assertSubscription(prevState, 'just after hold', (s0)=> ({
-                status: SUB_STATUS.ON_HOLD,
+                state: SUB_STATUS.ON_HOLD,
                 onHoldSince: ethNow(tx.receipt.blockNumber)
             }))))
         .then(prevState => evm_increaseTime(100000).then(evm_mine)
             .then(()=> assertSubscription(prevState, 'wait after hold', (s0)=> ({
-                status: SUB_STATUS.ON_HOLD
+                state: SUB_STATUS.ON_HOLD
             }))))
         .then(prevState => sub.unholdSubscription(subId, {from:user})
             .then(tx=> assertSubscription(prevState, 'just after unhold', (s0)=> ({
-                status     : SUB_STATUS.EXPIRED,
+                state     : SUB_STATUS.EXPIRED,
                 onHoldSince: 0,
                 paidUntil  : prevState.paidUntil.plus(ethNow(tx.receipt.blockNumber))
                                                 .minus(prevState.onHoldSince)
@@ -348,29 +348,29 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED', function() {
         let [subId, user] = [7, USER_01];
         return assertSubscription(subId, 'Check: PreCondition', (s0)=>({
-            status: SUB_STATUS.CHARGEABLE
+            state: SUB_STATUS.CHARGEABLE
         }))
         .then(s0 => sub.executeSubscription(subId, {from:user})
             .then(tx => collectPaymentData(subId))
             .then(s0 => sub.holdSubscription(subId, {from:user})
                 .then(tx=> assertSubscription(s0, 'just after hold', (s1)=>({
-                    status: SUB_STATUS.ON_HOLD,
+                    state: SUB_STATUS.ON_HOLD,
                     onHoldSince: ethNow(tx.receipt.blockNumber)
                 }))))
             .then(s0 => evm_increaseTime(100000).then(evm_mine)
                 .then(() => assertSubscription(s0, 'wait after hold', (s1)=>({
-                    status: SUB_STATUS.ON_HOLD
+                    state: SUB_STATUS.ON_HOLD
                 }))))
             .then(s0 => sub.unholdSubscription(subId, {from:user})
                 .then(tx=> assertSubscription(s0, 'just after unhold', (s1)=>{console.log(ethNow(), s0, s1); return ({
-                    status     : SUB_STATUS.CANCELED,
+                    state     : SUB_STATUS.CANCELED,
                     onHoldSince: 0,
                     paidUntil  : s0.paidUntil.plus(ethNow(tx.receipt.blockNumber))
                                                     .minus(s0.onHoldSince)
                 })})))
             .then(s0 => evm_increaseTime(10000).then(evm_mine)
                 .then(()=> assertSubscription(s0, 'wait after unhold', (s1)=>({
-                    status: SUB_STATUS.EXPIRED
+                    state: SUB_STATUS.EXPIRED
                 }))))
           )
     })
@@ -464,12 +464,12 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function collectPaymentData(subId){
         let R = new Map();
         return Promise.all([
-            sub.stateCode(subId),
+            sub.state(subId),
             sub.subscriptions(subId)
-        ]).then(([bn_stateId, subDef]) => {
+        ]).then(([state, subDef]) => {
             R = parseSubscriptionDef(subDef);
             R.subId = subId;
-            R.status = bn_stateId.toNumber();
+            R.state = state;
             R.amountToPay = R.pricePerHour.mul(R.chargePeriod).dividedToIntegerBy(SECONDS_IN_HOUR);
             return Promise.all([
                 san.balanceOf(R.transferFrom),
