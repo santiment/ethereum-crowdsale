@@ -213,6 +213,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
 //@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
+    string public constant VERSION = "0.1.0";
+
     // *************************************************
     // *              contract states                  *
     // *************************************************
