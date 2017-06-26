@@ -26,6 +26,10 @@ import "./ERC20.sol";
 //
 contract ServiceProvider {
 
+    ///@dev get human readable descriptor (or url) for this Service provider
+    //
+    function info() constant public returns(string);
+
     ///@dev called to post-approve/reject incoming single payment.
     ///@return `false` causes an exception and reverts the payment.
     //

@@ -6,6 +6,10 @@ contract TestableProvider is ServiceProvider, SubscriptionBase, Base {
     SubscriptionModule public sub;
     address public owner;
 
+    function info() public constant returns(string) {
+        return "Testable Provider v0.1.0";
+    }
+
     function TestableProvider(SubscriptionModule _sub, address _owner) public {
         sub = _sub;
         owner = _owner>0 ? _owner : tx.origin;
