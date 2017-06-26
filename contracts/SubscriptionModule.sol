@@ -406,7 +406,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
-  }
+    }
 
 
     ///@notice cancel an subscription given by `subId` (a graceful version).
@@ -523,10 +523,10 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
+
     // *************************************************
     // *              deposit handling                 *
     // *************************************************
-
 
     ///@notice can be called by provider on CANCELED subscription to return a subscription deposit to customer immediately.
     ///        Customer can anyway collect his deposit after `paidUntil` period is over.
@@ -585,6 +585,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         return depositCounter;
     }
 
+
     ///@notice return previously created deposit to the user. User can collect only own deposit.
     ///        The service provider is responsible to check the deposit before providing the service.
     ///@param _depositId - an id of the deposit to be collected.
@@ -598,9 +599,11 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         DepositReturned(_depositId, msg.sender);
     }
 
-    //
-    // ====================== some internal functions =================================
-    //
+
+
+    // *************************************************
+    // *            some internal functions            *
+    // *************************************************
 
     function _amountToCharge(Subscription storage sub) internal returns (uint) {
         return _applyXchangeRate(sub.pricePerHour * sub.chargePeriod, sub) / 1 hours;
