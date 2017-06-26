@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./SAN.sol";
 
-contract TestableProvider is PaymentListener, SubscriptionBase, Base {
+contract TestableProvider is ServiceProvider, SubscriptionBase, Base {
     SubscriptionModule public sub;
     address public owner;
 

@@ -23,7 +23,7 @@ import "./ERC20.sol";
 ///@dev an interface to implement by Service Provider contract to be notified about subscription changes (in-Tx notification).
 ///     see alse EVM events logged by subscription module.
 //
-contract PaymentListener {
+contract ServiceProvider {
 
     ///@dev called to post-approve/reject incoming single payment.
     ///@return `false` causes an exception and reverts the payment.
@@ -131,8 +131,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function attachToken(address token) public;
 
     ///@dev ***** single payment handling *****
-    function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success);
-    function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success);
+    function paymentTo(uint _value, bytes _paymentData, ServiceProvider _to) public returns (bool success);
+    function paymentFrom(uint _value, bytes _paymentData, address _from, ServiceProvider _to) public returns (bool success);
 
     ///@dev ***** subscription handling *****
     function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) public returns (uint subId);
@@ -162,8 +162,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function registerXRateProvider(XRateProvider addr) external returns (uint16 xrateProviderId);
 
     ///@dev ***** Service provider (payment receiver) *****
-    function enableServiceProvider(PaymentListener addr) external;
-    function disableServiceProvider(PaymentListener addr) external;
+    function enableServiceProvider(ServiceProvider addr) external;
+    function disableServiceProvider(ServiceProvider addr) external;
 
 
     ///@dev ***** convenience subscription getter *****
@@ -255,13 +255,13 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
 
     ///@dev register a new service provider to the platform.
-    function enableServiceProvider(PaymentListener addr) external only(owner) {
+    function enableServiceProvider(ServiceProvider addr) external only(owner) {
         providerRegistry[addr] = true;
     }
 
 
     ///@dev de-register the service provider with given `addr`.
-    function disableServiceProvider(PaymentListener addr) external only(owner) {
+    function disableServiceProvider(ServiceProvider addr) external only(owner) {
         delete providerRegistry[addr];
     }
 
@@ -291,10 +291,10 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@param _to - service provider contract
     ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
-    function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
+    function paymentTo(uint _value, bytes _paymentData, ServiceProvider _to) public returns (bool success) {
         if (san._fulfillPayment(msg.sender, _to, _value, 0, msg.sender)) {
-            // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
-            assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
+            // a ServiceProvider (a ServiceProvider) has here an opportunity verify and reject the payment
+            assert (ServiceProvider(_to).onPayment(msg.sender, _value, _paymentData));
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
@@ -308,10 +308,10 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@param _to - service provider contract
     ///@return `true` on success; `false` of failure (if caller is a contract) or throw an exception (if caller is not a contract)
     //
-    function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
+    function paymentFrom(uint _value, bytes _paymentData, address _from, ServiceProvider _to) public returns (bool success) {
         if (san._fulfillPreapprovedPayment(_from, _to, _value, msg.sender)) {
-            // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
-            assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
+            // a ServiceProvider (a ServiceProvider) has here an opportunity verify and reject the payment
+            assert (ServiceProvider(_to).onPayment(_from, _value, _paymentData));
             return true;
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
@@ -371,8 +371,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             if (san._fulfillPayment(_from, _to, _value, subId, msg.sender)) {
                 sub.paidUntil  = max(sub.paidUntil, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
-                // a PaymentListener (a ServiceProvider) has here an opportunity to verify and reject the payment
-                assert (PaymentListener(_to).onSubExecuted(subId));
+                // a ServiceProvider (a ServiceProvider) has here an opportunity to verify and reject the payment
+                assert (ServiceProvider(_to).onSubExecuted(subId));
                 return true;
             }
         }
@@ -537,7 +537,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         newSub.depositAmount = _applyXchangeRate(newSub.depositAmount, newSub);
         //depositAmount is now stored in the sub, so burn the same amount from customer's account.
         assert (san._burnForDeposit(msg.sender, newSub.depositAmount));
-        assert (PaymentListener(newSub.transferTo).onSubNew(newSubId, _offerId)); //service provider can still reject the new subscription here
+        assert (ServiceProvider(newSub.transferTo).onSubNew(newSubId, _offerId)); //service provider can still reject the new subscription here
 
         NewSubscription(newSub.transferFrom, newSub.transferTo, _offerId, newSubId);
         --offer.execCounter;
@@ -650,7 +650,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         var _to = sub.transferTo;
         require (msg.sender == _to || msg.sender == sub.transferFrom); //only customer or provider can place the subscription on hold.
         if (sub.onHoldSince == 0) {
-            if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, true)) {
+            if (msg.sender == _to || ServiceProvider(_to).onSubUnHold(subId, msg.sender, true)) {
                 sub.onHoldSince = now;
                 SubOnHold(subId, true, msg.sender);
                 return true;
@@ -672,7 +672,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         var _to = sub.transferTo;
         require (msg.sender == _to || msg.sender == sub.transferFrom); //only customer or provider can place the subscription on hold.
         if (sub.onHoldSince > 0) {
-            if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, false)) {
+            if (msg.sender == _to || ServiceProvider(_to).onSubUnHold(subId, msg.sender, false)) {
                 sub.paidUntil += now - sub.onHoldSince;
                 sub.onHoldSince = 0;
                 SubOnHold(subId, false, msg.sender);
