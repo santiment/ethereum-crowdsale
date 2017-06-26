@@ -515,31 +515,41 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
           else { throw; }
     }
 
-    // a service can allow/disallow a hold/unhold request
+    ///@notice called by customer or service provider to place a subscription on hold.
+    ///        If call is originated by customer the service provider can reject the request.
+    ///        A subscription on hold will not be charged. The service is usually not provided as well.
+    ///        During hold time a subscription preserve remaining paid time period, which becomes available after unhold.
     function holdSubscription (uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
-        if (sub.onHoldSince > 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, true)) {
-            sub.onHoldSince = now;
-            SubOnHold(subId, true, msg.sender);
-            return true;
+        require (msg.sender == _to || msg.sender == sub.transferFrom); //only customer or provider can place the subscription on hold.
+        if (sub.onHoldSince == 0) {
+            if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, true)) {
+                sub.onHoldSince = now;
+                SubOnHold(subId, true, msg.sender);
+                return true;
+            }
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
     }
 
-    // a service can allow/disallow a hold/unhold request
+    ///@notice called by customer or service provider to unhold subscription.
+    ///        If call is originated by customer the service provider can reject the request.
+    ///        A subscription on hold will not be charged. The service is usually not provided as well.
+    ///        During hold time a subscription preserve remaining paid time period, which becomes available after unhold.
     function unholdSubscription(uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
-        if (sub.onHoldSince == 0) { return true; }
         var _to = sub.transferTo;
-        if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, false)) {
-            sub.paidUntil += now - sub.onHoldSince;
-            sub.onHoldSince = 0;
-            SubOnHold(subId, false, msg.sender);
-            return true;
+        require (msg.sender == _to || msg.sender == sub.transferFrom); //only customer or provider can place the subscription on hold.
+        if (sub.onHoldSince > 0) {
+            if (msg.sender == _to || PaymentListener(_to).onSubUnHold(subId, msg.sender, false)) {
+                sub.paidUntil += now - sub.onHoldSince;
+                sub.onHoldSince = 0;
+                SubOnHold(subId, false, msg.sender);
+                return true;
+            }
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
     }
