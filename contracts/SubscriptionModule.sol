@@ -449,44 +449,6 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
-    ///@notice can be called by provider on CANCELED subscription to return a subscription deposit to customer immediately.
-    ///        Customer can anyway collect his deposit after `paidUntil` period is over.
-    ///@param subId - subscription holding the deposit
-    //
-    function returnSubscriptionDesposit(uint subId) external {
-        Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
-        assert (_currentStatus(sub) == Status.CANCELED);
-        assert (sub.depositAmount > 0); //sanity check
-        assert (sub.transferTo == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to release deposit.
-        sub.expireOn = now;
-        _returnSubscriptionDesposit(subId, sub);
-    }
-
-
-    ///@notice called by customer on EXPIRED subscription (`paidUntil` period is over) to collect a subscription deposit.
-    ///        Customer can anyway collect his deposit after `paidUntil` period is over.
-    ///@param subId - subscription holding the deposit
-    //
-    function claimSubscriptionDeposit(uint subId) public {
-        Subscription storage sub = subscriptions[subId];
-        assert (_currentStatus(sub) == Status.EXPIRED);
-        assert (sub.transferFrom == msg.sender);
-        assert (sub.depositAmount > 0);
-        assert (_isNotOffer(sub));
-        _returnSubscriptionDesposit(subId, sub);
-    }
-
-
-    //@dev returns subscription deposit to customer
-    function _returnSubscriptionDesposit(uint subId, Subscription storage sub) internal {
-        uint depositAmount = sub.depositAmount;
-        sub.depositAmount = 0;
-        san._mintFromDeposit(sub.transferFrom, depositAmount);
-        SubscriptionDepositReturned(subId, depositAmount, sub.transferFrom, msg.sender);
-    }
-
-
     ///@notice place an active offer on hold; it means no subscriptions can be created from this offer.
     ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
     ///@param offerId - id of the offer to be placed on hold.
@@ -559,6 +521,50 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         } else if (isContract(msg.sender)) { return false; }
           else { throw; }
     }
+
+
+    // *************************************************
+    // *              deposit handling                 *
+    // *************************************************
+
+
+    ///@notice can be called by provider on CANCELED subscription to return a subscription deposit to customer immediately.
+    ///        Customer can anyway collect his deposit after `paidUntil` period is over.
+    ///@param subId - subscription holding the deposit
+    //
+    function returnSubscriptionDesposit(uint subId) external {
+        Subscription storage sub = subscriptions[subId];
+        assert (_isNotOffer(sub));
+        assert (_currentStatus(sub) == Status.CANCELED);
+        assert (sub.depositAmount > 0); //sanity check
+        assert (sub.transferTo == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to release deposit.
+        sub.expireOn = now;
+        _returnSubscriptionDesposit(subId, sub);
+    }
+
+
+    ///@notice called by customer on EXPIRED subscription (`paidUntil` period is over) to collect a subscription deposit.
+    ///        Customer can anyway collect his deposit after `paidUntil` period is over.
+    ///@param subId - subscription holding the deposit
+    //
+    function claimSubscriptionDeposit(uint subId) public {
+        Subscription storage sub = subscriptions[subId];
+        assert (_currentStatus(sub) == Status.EXPIRED);
+        assert (sub.transferFrom == msg.sender);
+        assert (sub.depositAmount > 0);
+        assert (_isNotOffer(sub));
+        _returnSubscriptionDesposit(subId, sub);
+    }
+
+
+    //@dev returns subscription deposit to customer
+    function _returnSubscriptionDesposit(uint subId, Subscription storage sub) internal {
+        uint depositAmount = sub.depositAmount;
+        sub.depositAmount = 0;
+        san._mintFromDeposit(sub.transferFrom, depositAmount);
+        SubscriptionDepositReturned(subId, depositAmount, sub.transferFrom, msg.sender);
+    }
+
 
     ///@notice create simple unlocked deposit, required by some services. It can be considered as prove of customer's stake.
     ///        This desposit can be claimed back by the customer at anytime.
