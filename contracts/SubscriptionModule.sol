@@ -171,12 +171,6 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     ERC20ModuleSupport san;
 
-    ///@dev constructor
-    function SubscriptionModuleImpl() {
-        owner = msg.sender;
-        xrateProviders.push(XRateProvider(this));
-    }
-
     // ------------------------------------------------------------------------
     // Don't accept ethers
     // ------------------------------------------------------------------------
@@ -184,18 +178,49 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         throw;
     }
 
+    // *************************************************
+    // *            setup and configuration            *
+    // *************************************************
+
+    ///@dev constructor
+    function SubscriptionModuleImpl() {
+        owner = msg.sender;
+        xrateProviders.push(XRateProvider(this)); //this is a default SAN:SAN (1:1) provider with default id == 0
+    }
+
+
     function attachToken(address token) public {
         assert(address(san) == 0); //only in new deployed state
         san = ERC20ModuleSupport(token);
     }
 
+
     function enableServiceProvider(PaymentListener addr) external only(owner) {
         providerRegistry[addr] = true;
     }
 
+
     function disableServiceProvider(PaymentListener addr) external only(owner) {
         delete providerRegistry[addr];
     }
+
+
+    function registerXRateProvider(XRateProvider addr) external only(owner) returns (uint16 xrateProviderId) {
+        xrateProviderId = uint16(xrateProviders.length);
+        xrateProviders.push(addr);
+        NewXRateProvider(addr, xrateProviderId, msg.sender);
+    }
+
+
+    function getXRateProviderLength() external constant returns (uint) {
+        return xrateProviders.length;
+    }
+
+
+
+    // *************************************************
+    // *            subscription handling              *
+    // *************************************************
 
     function subscriptionDetails(uint subId) external constant returns (
         address transferFrom,
@@ -222,14 +247,6 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         Subscription sub = subscriptions[subId];
         return (sub.depositAmount, sub.expireOn, sub.execCounter, sub.paidUntil, sub.onHoldSince);
     }
-
-    function registerXRateProvider(XRateProvider addr) external only(owner) returns (uint16 xrateProviderId) {
-        xrateProviderId = uint16(xrateProviders.length);
-        xrateProviders.push(addr);
-        NewXRateProvider(addr, xrateProviderId, msg.sender);
-    }
-
-    function getXRateProviderLength() external constant returns (uint) { return xrateProviders.length; }
 
     function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
         if (san._fulfillPayment(msg.sender, _to, _value, 0, msg.sender)) {
