@@ -20,7 +20,8 @@ import "./ERC20.sol";
 // 8 - validate linking modules and deployment process: attachToken(address token) public
 
 
-///@dev an interface to implement by Service Provider contract to be notified about subscription changes (in-Tx notification).
+///@dev an base class to implement by Service Provider contract to be notified about subscription changes (in-Tx notification).
+///     Additionally it contains standard events to be fired by service provider on offer changes.
 ///     see alse EVM events logged by subscription module.
 //
 contract ServiceProvider {
@@ -51,7 +52,22 @@ contract ServiceProvider {
     //
     function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool);
 
-}
+
+    ///@dev following events should be used by ServiceProvider contract to notify DApps about offer changes.
+    ///     SubscriptionModule do not this notification and expects it from Service Provider if desired.
+    ///
+    ///@dev to be fired by ServiceProvider on new Offer created in a platform.
+    event OfferCreated(uint offerId,  bytes descriptor, address provider);
+
+    ///@dev to be fired by ServiceProvider on Offer updated.
+    event OfferUpdated(uint offerId,  bytes descriptor, uint oldExecCounter, address provider);
+
+    ///@dev to be fired by ServiceProvider on Offer canceled.
+    event OfferCanceled(uint offerId, bytes descriptor, address provider);
+
+    ///@dev to be fired by ServiceProvider on Offer hold/unhold status changed.
+    event OfferUnHold(uint offerId,   bytes descriptor, bool isOnHoldNow, address provider);
+} //ServiceProvider
 
 ///@notice XRateProvider is an external service providing an exchange rate from external currency to SAN token.
 /// it used for subscriptions priced in other currency than SAN (even calculated and paid formally in SAN).

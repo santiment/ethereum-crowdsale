@@ -17,6 +17,7 @@ contract TestableProvider is ServiceProvider, SubscriptionBase, Base {
     )  returns (uint subId) {
         subId = sub.createSubscriptionOffer(_price, _xrateProviderId, _chargePeriod, _validUntil, _offerLimit, _depositValue, _startOn, _descriptor);
         //if (uint(san)>0) subId = san.createOffer2(_price);
+        OfferCreated(subId,  _descriptor, this);
         NewOffer(this,subId);
     }
 
