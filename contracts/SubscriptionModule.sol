@@ -161,6 +161,14 @@ contract SubscriptionModule is SubscriptionBase, Base {
 //@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
+
+    mapping (address=>bool) public providerRegistry;
+    mapping (uint => Subscription) public subscriptions;
+    mapping (uint => Deposit) public deposits;
+    XRateProvider[] public xrateProviders;
+    uint public subscriptionCounter = 0;
+    uint public depositCounter = 0;
+
     uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
     ERC20ModuleSupport san;
 
@@ -277,6 +285,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
           else { throw; }
     }
 
+    ///@dev return current status of subscription with gived id;
     function currentStatus(uint subId) public constant returns(Status status) {
         return _currentStatus(subscriptions[subId]);
     }
@@ -634,11 +643,4 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         _;
     }
 
-    mapping (address=>bool) public providerRegistry;
-    mapping (uint => Subscription) public subscriptions;
-    mapping (uint => Deposit) public deposits;
-    XRateProvider[] public xrateProviders;
-    uint public subscriptionCounter = 0;
-    uint public depositCounter = 0;
-
-}
+} //SubscriptionModuleImpl
