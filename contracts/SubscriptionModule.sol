@@ -81,7 +81,7 @@ contract XRateProvider {
 }
 
 
-//@notice data structure for SubscriptionModule
+//@dev data structure for SubscriptionModule
 contract SubscriptionBase {
     enum Status {NOT_EXIST, OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
 
@@ -190,6 +190,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
     event Payment(address _from, address _to, uint _value, uint _fee, address sender, PaymentStatus status, uint subId);
 
 } //SubscriptionModule
+
+
 
 //@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
