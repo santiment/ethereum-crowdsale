@@ -267,7 +267,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     status : SUB_STATUS.EXPIRED
                 })));
             }).then(s0 => {
-                return sub.paybackSubscriptionDeposit(subId) //method under test
+                return sub.claimSubscriptionDeposit(subId,{from:s0.transferFrom}) //method under test
                 .then(tx => assertSubscription(s0, i+':Check: deposit is paid back', (s1)=>({
                     balanceFrom   : s0.balanceFrom.plus(s0.depositAmount),
                     depositAmount : 0,

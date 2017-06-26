@@ -125,7 +125,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function unholdSubscriptionOffer(uint offerId) public returns (bool success);
     function cancelSubscriptionOffer(uint offerId) public returns (bool);
 
-    function paybackSubscriptionDeposit(uint subId);
+    function claimSubscriptionDeposit(uint subId);
     function createDeposit(uint _value, bytes _descriptor) public returns (uint subId);
     function claimDeposit(uint depositId) public;
     function registerXRateProvider(XRateProvider addr) external returns (uint16 xrateProviderId);
@@ -452,6 +452,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice can be called by provider on CANCELED subscription to return a subscription deposit to customer immediately.
     ///        Customer can anyway collect his deposit after `paidUntil` period is over.
     ///@param subId - subscription holding the deposit
+    //
     function returnSubscriptionDesposit(uint subId) external {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
@@ -466,6 +467,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice called by customer on EXPIRED subscription (`paidUntil` period is over) to collect a subscription deposit.
     ///        Customer can anyway collect his deposit after `paidUntil` period is over.
     ///@param subId - subscription holding the deposit
+    //
     function claimSubscriptionDeposit(uint subId) public {
         Subscription storage sub = subscriptions[subId];
         assert (_currentStatus(sub) == Status.EXPIRED);
@@ -488,6 +490,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice place an active offer on hold; it means no subscriptions can be created from this offer.
     ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
     ///@param offerId - id of the offer to be placed on hold.
+    //
     function holdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
         assert (_isOffer(offer));
@@ -503,6 +506,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice resume on-hold offer; subscriptions can be created from this offer again (if other conditions are met).
     ///        Only service provider (or platform owner) is allowed to hold/unhold a subscription offer.
     ///@param offerId - id of the offer to be resumed.
+    //
     function unholdSubscriptionOffer(uint offerId) public returns (bool success) {
         Subscription storage offer = subscriptions[offerId];
         assert (_isOffer(offer));
@@ -519,6 +523,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        If call is originated by customer the service provider can reject the request.
     ///        A subscription on hold will not be charged. The service is usually not provided as well.
     ///        During hold time a subscription preserve remaining paid time period, which becomes available after unhold.
+    //
     function holdSubscription (uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
@@ -538,6 +543,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        If call is originated by customer the service provider can reject the request.
     ///        A subscription on hold will not be charged. The service is usually not provided as well.
     ///        During hold time a subscription preserve remaining paid time period, which becomes available after unhold.
+    //
     function unholdSubscription(uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
@@ -554,42 +560,41 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
           else { throw; }
     }
 
-    function createDeposit(uint _value, bytes _descriptor) public returns (uint subId) {
-      return _createDeposit(msg.sender, _value, _descriptor);
-    }
-
-    function claimDeposit(uint depositId) public {
-        return _claimDeposit(depositId, msg.sender);
-    }
-
-    function paybackSubscriptionDeposit(uint subId) public {
-        Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
-        assert (currentStatus(subId) == Status.EXPIRED);
-        var depositAmount = sub.depositAmount;
-        assert (depositAmount > 0);
-        sub.depositAmount = 0;
-        san._mintFromDeposit(sub.transferFrom, depositAmount);
-    }
-
-    function _createDeposit(address _owner, uint _value, bytes _descriptor) internal returns (uint depositId) {
-        assert (san._burnForDeposit(_owner,_value));
+    ///@notice create simple unlocked deposit, required by some services. It can be considered as prove of customer's stake.
+    ///        This desposit can be claimed back by the customer at anytime.
+    ///        The service provider is responsible to check the deposit before providing the service.
+    ///@param _value - deposit amount
+    ///@param _descriptor - is a uniq key, usually given by service provider to the customer in order to make this deposit unique.
+    ///        Service Provider should reject deposit with unknown descriptor, because most probably it is in use for some another service.
+    ///@return depositId - a handle to claim back the deposit later.
+    //
+    function createDeposit(uint _value, bytes _descriptor) public returns (uint depositId) {
+        assert (san._burnForDeposit(msg.sender,_value));
         deposits[++depositCounter] = Deposit ({
-            owner : _owner,
+            owner : msg.sender,
             value : _value,
             descriptor : _descriptor
         });
-        NewDeposit(depositCounter, _value, _owner);
+        NewDeposit(depositCounter, _value, msg.sender);
         return depositCounter;
     }
 
-    function _claimDeposit(uint depositId, address returnTo) internal {
-        if (deposits[depositId].owner == returnTo) {
-            san._mintFromDeposit(returnTo, deposits[depositId].value);
-            delete deposits[depositId];
-            DepositReturned(depositId, returnTo);
-        } else { throw; }
+    ///@notice return previously created deposit to the user. User can collect only own deposit.
+    ///        The service provider is responsible to check the deposit before providing the service.
+    ///@param _depositId - an id of the deposit to be collected.
+    //
+    function claimDeposit(uint _depositId) public {
+        var deposit = deposits[_depositId];
+        require (deposit.owner == msg.sender);
+        var value = deposits[_depositId].value;
+        delete deposits[_depositId];
+        san._mintFromDeposit(msg.sender, value);
+        DepositReturned(_depositId, msg.sender);
     }
+
+    //
+    // ====================== some internal functions =================================
+    //
 
     function _amountToCharge(Subscription storage sub) internal returns (uint) {
         return _applyXchangeRate(sub.pricePerHour * sub.chargePeriod, sub) / 1 hours;
