@@ -16,7 +16,7 @@ import "./ERC20.sol";
 // 6 - check: all _paymentData
 // 7 - check Cancel/Hold/Unhold Offer functionality
 // 8 - validate linking modules and deployment process: attachToken(address token) public
-// 9 - validate function currentStatus(uint subId) public constant
+// 9 - validate function subscriptionState(uint subId) public constant
 //ToDo later:
 // 0 - embed force archive subscription into sub cancellation.
 //     (Currently difficult/impossible because low level call is missing return value)
@@ -83,7 +83,12 @@ contract XRateProvider {
 
 //@dev data structure for SubscriptionModule
 contract SubscriptionBase {
-    enum Status {NOT_EXIST, OFFER, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
+
+    enum SubState   {NOT_EXIST, BEFORE_START, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
+    enum OfferState {NOT_EXIST, BEFORE_START, ACTIVE, SOLD_OUT, ON_HOLD, EXPIRED}
+
+    string[] internal SUB_STATES   = ["NOT_EXIST", "BEFORE_START", "PAID", "CHARGEABLE", "ON_HOLD", "CANCELED", "EXPIRED", "ARCHIVED" ];
+    string[] internal OFFER_STATES = ["NOT_EXIST", "BEFORE_START", "ACTIVE", "SOLD_OUT", "ON_HOLD", "EXPIRED"];
 
     //@dev subscription and subscription offer use the same structure. Offer is technically a template for subscription.
     struct Subscription {
@@ -144,9 +149,10 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function unholdSubscription(uint subId) public  returns (bool success);
     function executeSubscription(uint subId) public returns (bool success);
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success);
-    function currentStatus(uint subId) public constant returns(Status status);
     function returnSubscriptionDesposit(uint subId) external;
     function claimSubscriptionDeposit(uint subId) external;
+    function state(uint subId) public constant returns(string state);
+    function stateCode(uint subId) public constant returns(uint stateCode);
 
     ///@dev ***** subscription offer handling *****
     function holdSubscriptionOffer(uint offerId) public returns (bool success);
@@ -362,9 +368,8 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function executeSubscription(uint subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
         assert (msg.sender == sub.transferFrom || msg.sender == sub.transferTo || msg.sender == owner);
-        if (_currentStatus(sub)==Status.CHARGEABLE) {
+        if (_subscriptionState(sub)==SubState.CHARGEABLE) {
             var _from = sub.transferFrom;
             var _to = sub.transferTo;
             var _value = _amountToCharge(sub);
@@ -389,7 +394,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success){
         Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
+        assert (_isSubscription(sub));
         assert (sub.transferTo == msg.sender); //only Service Provider is allowed to postpone the DueDate
         if (sub.paidUntil < newDueDate) {
             sub.paidUntil = newDueDate;
@@ -400,29 +405,56 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
 
     ///@dev return current status of subscription with gived id;
-    function currentStatus(uint subId) public constant returns(Status status) {
-        return _currentStatus(subscriptions[subId]);
+    function state(uint subOrOfferId) public constant returns(string state) {
+        Subscription subOrOffer = subscriptions[subOrOfferId];
+        return _isOffer(subOrOffer)
+              ? OFFER_STATES[uint(_offerState(subOrOffer))]
+              : SUB_STATES[uint(_subscriptionState(subOrOffer))];
     }
 
 
-    function _currentStatus(Subscription storage sub) internal constant returns(Status status) {
-        if (sub.transferTo == 0) {
-            //every subscription or offer has this field set. If not -- there is no record to given id at all.
-            return Status.NOT_EXIST;
-        } else if (sub.onHoldSince>0) {
-            return Status.ON_HOLD;
-        } else if (sub.transferFrom==0) {
-            return Status.OFFER;
+    ///@dev return current status of subscription with gived id;
+    function stateCode(uint subOrOfferId) public constant returns(uint stateCode) {
+        Subscription subOrOffer = subscriptions[subOrOfferId];
+        return _isOffer(subOrOffer)
+              ? uint(_offerState(subOrOffer))
+              : uint(_subscriptionState(subOrOffer));
+    }
+
+
+    function _offerState(Subscription storage sub) internal constant returns(OfferState status) {
+        if (!_isOffer(sub)) {
+            return OfferState.NOT_EXIST;
+        } else if (sub.startOn > now) {
+            return OfferState.BEFORE_START;
+        } else if (sub.onHoldSince > 0) {
+            return OfferState.ON_HOLD;
+        } else if (now <= sub.expireOn) {
+            return sub.execCounter > 0
+                ? OfferState.ACTIVE
+                : OfferState.SOLD_OUT;
+        } else {
+            return OfferState.EXPIRED;
+        }
+    }
+
+    function _subscriptionState(Subscription storage sub) internal constant returns(SubState status) {
+        if (!_isSubscription(sub)) {
+            return SubState.NOT_EXIST;
+        } else if (sub.startOn > now) {
+            return SubState.BEFORE_START;
+        } else if (sub.onHoldSince > 0) {
+            return SubState.ON_HOLD;
         } else if (sub.paidUntil >= sub.expireOn) {
             return now < sub.expireOn
-                ? Status.CANCELED
+                ? SubState.CANCELED
                 : sub.depositAmount > 0
-                    ? Status.EXPIRED
-                    : Status.ARCHIVED;
+                    ? SubState.EXPIRED
+                    : SubState.ARCHIVED;
         } else if (sub.paidUntil <= now) {
-            return Status.CHARGEABLE;
+            return SubState.CHARGEABLE;
         } else {
-            return Status.PAID;
+            return SubState.PAID;
         }
     }
 
@@ -559,7 +591,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     function cancelSubscription(uint subId, uint gasReserve) public {
         Subscription storage sub = subscriptions[subId];
         assert (sub.transferFrom == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to cancel it
-        assert (_isNotOffer(sub));
+        assert (_isSubscription(sub));
         var _to = sub.transferTo;
         sub.expireOn = max(now, sub.paidUntil);
         if (msg.sender != _to) {
@@ -619,7 +651,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function holdSubscription (uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
+        assert (_isSubscription(sub));
         var _to = sub.transferTo;
         require (msg.sender == _to || msg.sender == sub.transferFrom); //only customer or provider can place the subscription on hold.
         if (sub.onHoldSince == 0) {
@@ -641,7 +673,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function unholdSubscription(uint subId) public returns (bool success) {
         Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
+        assert (_isSubscription(sub));
         var _to = sub.transferTo;
         require (msg.sender == _to || msg.sender == sub.transferFrom); //only customer or provider can place the subscription on hold.
         if (sub.onHoldSince > 0) {
@@ -667,8 +699,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function returnSubscriptionDesposit(uint subId) external {
         Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
-        assert (_currentStatus(sub) == Status.CANCELED);
+        assert (_subscriptionState(sub) == SubState.CANCELED);
         assert (sub.depositAmount > 0); //sanity check
         assert (sub.transferTo == msg.sender || owner == msg.sender); //only subscription owner or platform owner is allowed to release deposit.
         sub.expireOn = now;
@@ -682,8 +713,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     //
     function claimSubscriptionDeposit(uint subId) external {
         Subscription storage sub = subscriptions[subId];
-        assert (_isNotOffer(sub));
-        assert (_currentStatus(sub) == Status.EXPIRED);
+        assert (_subscriptionState(sub) == SubState.EXPIRED);
         assert (sub.transferFrom == msg.sender);
         assert (sub.depositAmount > 0);
         _returnSubscriptionDesposit(subId, sub);
@@ -757,7 +787,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         return sub.transferFrom == 0 && sub.transferTo != 0;
     }
 
-    function _isNotOffer(Subscription storage sub) internal constant returns (bool){
+    function _isSubscription(Subscription storage sub) internal constant returns (bool){
         return sub.transferFrom != 0 && sub.transferTo != 0;
     }
 

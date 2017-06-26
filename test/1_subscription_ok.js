@@ -21,8 +21,12 @@ const web3UtilApi = require('web3/lib/utils/utils.js');
 const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(blockNumber||web3.eth.blockNumber).timestamp;
-const SUB_STATUS = {NOT_EXIST:0, OFFER:1, PAID:2, CHARGEABLE:3, ON_HOLD:4, CANCELED:5, EXPIRED:6, ARCHIVED:7}
-const SUB_STATUS_REV = {0:'NOT_EXIST', 1:'OFFER', 2:'PAID', 3:'CHARGEABLE', 4:'ON_HOLD', 5:'CANCELED', 6:'EXPIRED', 7:'ARCHIVED'}
+
+const SUB_STATUS = {NOT_EXIST:0, BEFORE_START:1, PAID:2, CHARGEABLE:3, ON_HOLD:4, CANCELED:5, EXPIRED:6, ARCHIVED:7}
+const SUB_STATUS_REV = {0:'NOT_EXIST', 1:'BEFORE_START', 2:'PAID', 3:'CHARGEABLE', 4:'ON_HOLD', 5:'CANCELED', 6:'EXPIRED', 7:'ARCHIVED'}
+const OFFER_STATUS = {NOT_EXIST:0, BEFORE_START:1, ACTIVE:2, SOLD_OUT:3, ON_HOLD:4, EXPIRED:6}
+const OFFER_STATUS_REV = {0:"NOT_EXIST", 1:"BEFORE_START", 2:"ACTIVE", 3:"SOLD_OUT", 4:"ON_HOLD", 5:"EXPIRED"}
+
 const SECONDS_IN_HOUR = 60*60;
 
 contract('san', function(accounts){
@@ -59,7 +63,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:3300000})
             .then( _instance =>{
                 san = _instance;
-                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:3400000})
+                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:3800000})
                     .then(_instance => {
                         sub = _instance;
                         return san.attachSubscriptionModule(sub.address, {from:PLATFORM_OWNER});
@@ -144,7 +148,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 execCounter    : offerDef.offerLimit,
                 descriptor     : offerDef.descriptor,
                 onHoldSince    : 0,
-                status: SUB_STATUS.OFFER
+                status: OFFER_STATUS.ACTIVE
             })));
         });
     });
@@ -460,12 +464,12 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     function collectPaymentData(subId){
         let R = new Map();
         return Promise.all([
-            sub.currentStatus(subId),
+            sub.stateCode(subId),
             sub.subscriptions(subId)
-        ]).then(([bn_statusId, subDef]) => {
+        ]).then(([bn_stateId, subDef]) => {
             R = parseSubscriptionDef(subDef);
             R.subId = subId;
-            R.status = bn_statusId.toNumber();
+            R.status = bn_stateId.toNumber();
             R.amountToPay = R.pricePerHour.mul(R.chargePeriod).dividedToIntegerBy(SECONDS_IN_HOUR);
             return Promise.all([
                 san.balanceOf(R.transferFrom),
