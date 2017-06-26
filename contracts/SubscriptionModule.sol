@@ -15,6 +15,8 @@ import "./ERC20.sol";
 // 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
 // 7 - check Cancel/Hold/Unhold Offer functionality
+// 8 - validate linking modules and deployment process: attachToken(address token) public
+// 9 - validate function currentStatus(uint subId) public constant
 //ToDo later:
 // 0 - embed force archive subscription into sub cancellation.
 //     (Currently difficult/impossible because low level call is missing return value)
@@ -188,40 +190,66 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         xrateProviders.push(XRateProvider(this)); //this is a default SAN:SAN (1:1) provider with default id == 0
     }
 
-
+    ///@dev attach SAN token to work with; can be done only once.
     function attachToken(address token) public {
         assert(address(san) == 0); //only in new deployed state
         san = ERC20ModuleSupport(token);
     }
 
-
+    ///@dev register a new service provider to the platform.
     function enableServiceProvider(PaymentListener addr) external only(owner) {
         providerRegistry[addr] = true;
     }
 
 
+    ///@dev de-register the service provider with given `addr`.
     function disableServiceProvider(PaymentListener addr) external only(owner) {
         delete providerRegistry[addr];
     }
 
-
+    ///@dev register new exchange rate provider.
+    ///     XRateProvider can't be de-registered, because they could be still in use by some subscription.
     function registerXRateProvider(XRateProvider addr) external only(owner) returns (uint16 xrateProviderId) {
         xrateProviderId = uint16(xrateProviders.length);
         xrateProviders.push(addr);
         NewXRateProvider(addr, xrateProviderId, msg.sender);
     }
 
-
+    ///@dev xrateProviders length accessor.
     function getXRateProviderLength() external constant returns (uint) {
         return xrateProviders.length;
     }
 
+
+    // *************************************************
+    // *           single payment methods              *
+    // *************************************************
+
+    function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
+        if (san._fulfillPayment(msg.sender, _to, _value, 0, msg.sender)) {
+            // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
+            assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
+            return true;
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
+    }
+
+
+    function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
+        if (san._fulfillPreapprovedPayment(_from, _to, _value, msg.sender)) {
+            // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
+            assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
+            return true;
+        } else if (isContract(msg.sender)) { return false; }
+          else { throw; }
+    }
 
 
     // *************************************************
     // *            subscription handling              *
     // *************************************************
 
+    ///@dev convenience getter for some subscription fields
     function subscriptionDetails(uint subId) external constant returns (
         address transferFrom,
         address transferTo,
@@ -237,6 +265,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         return (sub.transferFrom, sub.transferTo, sub.pricePerHour, sub.initialXrate_n, sub.initialXrate_d, sub.xrateProviderId, sub.chargePeriod, sub.startOn, sub.descriptor);
     }
 
+
+    ///@dev convenience getter for some subscription fields
+    ///     a caller must know, that the subscription with given id exists, because all these fields can be 0 even the subscription with given id exists.
     function subscriptionStatus(uint subId) external constant returns(
         uint depositAmount,
         uint expireOn,
@@ -248,23 +279,6 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         return (sub.depositAmount, sub.expireOn, sub.execCounter, sub.paidUntil, sub.onHoldSince);
     }
 
-    function paymentTo(uint _value, bytes _paymentData, PaymentListener _to) public returns (bool success) {
-        if (san._fulfillPayment(msg.sender, _to, _value, 0, msg.sender)) {
-            // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
-            assert (PaymentListener(_to).onPayment(msg.sender, _value, _paymentData));
-            return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
-    }
-
-    function paymentFrom(uint _value, bytes _paymentData, address _from, PaymentListener _to) public returns (bool success) {
-        if (san._fulfillPreapprovedPayment(_from, _to, _value, msg.sender)) {
-            // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
-            assert (PaymentListener(_to).onPayment(_from, _value, _paymentData));
-            return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
-    }
 
     function executeSubscription(uint subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
