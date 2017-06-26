@@ -169,9 +169,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     uint public subscriptionCounter = 0;
     uint public depositCounter = 0;
 
-    uint public PLATFORM_FEE_PER_10000 = 1; //0,01%
     ERC20ModuleSupport san;
 
+    ///@dev constructor
     function SubscriptionModuleImpl() {
         owner = msg.sender;
         xrateProviders.push(XRateProvider(this));
@@ -187,11 +187,6 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     function attachToken(address token) public {
         assert(address(san) == 0); //only in new deployed state
         san = ERC20ModuleSupport(token);
-    }
-
-    function setPlatformFeePer10000(uint newFee) external only(owner) {
-        require (newFee <= 10000); //formally maximum fee is 100% (completely insane but technically possible)
-        PLATFORM_FEE_PER_10000 = newFee;
     }
 
     function enableServiceProvider(PaymentListener addr) external only(owner) {
