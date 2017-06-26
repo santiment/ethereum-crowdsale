@@ -588,12 +588,13 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@notice create simple unlocked deposit, required by some services. It can be considered as prove of customer's stake.
     ///        This desposit can be claimed back by the customer at anytime.
     ///        The service provider is responsible to check the deposit before providing the service.
-    ///@param _value - deposit amount
+    ///@param _value - non zero deposit amount.
     ///@param _descriptor - is a uniq key, usually given by service provider to the customer in order to make this deposit unique.
     ///        Service Provider should reject deposit with unknown descriptor, because most probably it is in use for some another service.
     ///@return depositId - a handle to claim back the deposit later.
     //
     function createDeposit(uint _value, bytes _descriptor) public returns (uint depositId) {
+        require (_value > 0);
         assert (san._burnForDeposit(msg.sender,_value));
         deposits[++depositCounter] = Deposit ({
             owner : msg.sender,
