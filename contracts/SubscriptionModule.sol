@@ -280,6 +280,14 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
+    ///@notice execute periodic subscription payment.
+    ///        Any of customer, service provider and platform owner can execute this function.
+    ///        This ensures, that the subscription charge doesn't become delayed.
+    ///        At least the platform owner has an incentive to get fee and thus can trigger the function.
+    ///        An execution fails if subscription is not in status `CHARGEABLE`.
+    ///@param subId - subscription to be charged.
+    ///@return `true` if subscription is charged, `false` if not (or exception thrown if the caller is not a contract).
+    //
     function executeSubscription(uint subId) public returns (bool) {
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
@@ -291,7 +299,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             if (san._fulfillPayment(_from, _to, _value, subId, msg.sender)) {
                 sub.paidUntil  = max(sub.paidUntil, sub.startOn) + sub.chargePeriod;
                 ++sub.execCounter;
-                // a PaymentListener (a ServiceProvider) has here an opportunity verify and reject the payment
+                // a PaymentListener (a ServiceProvider) has here an opportunity to verify and reject the payment
                 assert (PaymentListener(_to).onSubExecuted(subId));
                 return true;
             }
@@ -300,6 +308,11 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
         else { throw; }
     }
 
+    ///@notice move `paidUntil` forward to given `newDueDate`. It waives payments for given time.
+    ///        This function can be used by service provider to `give away` some service time for free.
+    ///@param subId - id of subscription to be postponed.
+    ///@param newDueDate - new `paidUntil` datetime; require `newDueDate > paidUntil`.
+    //
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success){
         Subscription storage sub = subscriptions[subId];
         assert (_isNotOffer(sub));
