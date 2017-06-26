@@ -22,8 +22,8 @@ const SolidityCoder = require('web3/lib/solidity/coder.js');
 const BN = n => (new BigNumber(n)).toString();
 const ethNow = blockNumber => web3.eth.getBlock(blockNumber||web3.eth.blockNumber).timestamp;
 
-const SUB_STATUS = {NOT_EXIST:0, BEFORE_START:1, PAID:2, CHARGEABLE:3, ON_HOLD:4, CANCELED:5, EXPIRED:6, ARCHIVED:7}
-const SUB_STATUS_REV = {0:'NOT_EXIST', 1:'BEFORE_START', 2:'PAID', 3:'CHARGEABLE', 4:'ON_HOLD', 5:'CANCELED', 6:'EXPIRED', 7:'ARCHIVED'}
+const SUB_STATUS = {NOT_EXIST:0, BEFORE_START:1, PAID:2, CHARGEABLE:3, ON_HOLD:4, CANCELED:5, EXPIRED:6, FINALIZED:7}
+const SUB_STATUS_REV = {0:'NOT_EXIST', 1:'BEFORE_START', 2:'PAID', 3:'CHARGEABLE', 4:'ON_HOLD', 5:'CANCELED', 6:'EXPIRED', 7:'FINALIZED'}
 const OFFER_STATUS = {NOT_EXIST:0, BEFORE_START:1, ACTIVE:2, SOLD_OUT:3, ON_HOLD:4, EXPIRED:6}
 const OFFER_STATUS_REV = {0:"NOT_EXIST", 1:"BEFORE_START", 2:"ACTIVE", 3:"SOLD_OUT", 4:"ON_HOLD", 5:"EXPIRED"}
 
@@ -275,7 +275,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 .then(tx => assertSubscription(s0, i+':Check: deposit is paid back', (s1)=>({
                     balanceFrom   : s0.balanceFrom.plus(s0.depositAmount),
                     depositAmount : 0,
-                    status : SUB_STATUS.ARCHIVED
+                    status : SUB_STATUS.FINALIZED
                 })));
             });
        });

@@ -84,10 +84,10 @@ contract XRateProvider {
 //@dev data structure for SubscriptionModule
 contract SubscriptionBase {
 
-    enum SubState   {NOT_EXIST, BEFORE_START, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, ARCHIVED}
+    enum SubState   {NOT_EXIST, BEFORE_START, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, FINALIZED}
     enum OfferState {NOT_EXIST, BEFORE_START, ACTIVE, SOLD_OUT, ON_HOLD, EXPIRED}
 
-    string[] internal SUB_STATES   = ["NOT_EXIST", "BEFORE_START", "PAID", "CHARGEABLE", "ON_HOLD", "CANCELED", "EXPIRED", "ARCHIVED" ];
+    string[] internal SUB_STATES   = ["NOT_EXIST", "BEFORE_START", "PAID", "CHARGEABLE", "ON_HOLD", "CANCELED", "EXPIRED", "FINALIZED" ];
     string[] internal OFFER_STATES = ["NOT_EXIST", "BEFORE_START", "ACTIVE", "SOLD_OUT", "ON_HOLD", "EXPIRED"];
 
     //@dev subscription and subscription offer use the same structure. Offer is technically a template for subscription.
@@ -209,7 +209,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@dev list of all registered service provider contracts impelmented as a map for better lookup.
     mapping (address=>bool) public providerRegistry;
 
-    ///@dev all subscriptions and offers (incl. ARCHIVED).
+    ///@dev all subscriptions and offers (incl. FINALIZED).
     mapping (uint => Subscription) public subscriptions;
 
     ///@dev all active simple deposits gived by depositId.
@@ -450,7 +450,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
                 ? SubState.CANCELED
                 : sub.depositAmount > 0
                     ? SubState.EXPIRED
-                    : SubState.ARCHIVED;
+                    : SubState.FINALIZED;
         } else if (sub.paidUntil <= now) {
             return SubState.CHARGEABLE;
         } else {
