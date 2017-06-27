@@ -322,8 +322,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             // a ServiceProvider (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (ServiceProvider(_to).onPayment(msg.sender, _value, _paymentData));
             return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
@@ -339,8 +340,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             // a ServiceProvider (a ServiceProvider) has here an opportunity verify and reject the payment
             assert (ServiceProvider(_to).onPayment(_from, _value, _paymentData));
             return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
@@ -583,8 +585,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             offer.expireOn = now;
             OfferCanceled(offerId, msg.sender);
             return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
@@ -641,8 +644,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             offer.onHoldSince = now;
             OfferOnHold(offerId, true, msg.sender);
             return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
@@ -659,8 +663,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
             offer.onHoldSince = 0;
             OfferOnHold(offerId, false, msg.sender);
             return true;
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
@@ -681,8 +686,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
                 SubOnHold(subId, true, msg.sender);
                 return true;
             }
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
@@ -704,8 +710,9 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
                 SubOnHold(subId, false, msg.sender);
                 return true;
             }
-        } else if (isContract(msg.sender)) { return false; }
-          else { throw; }
+        }
+        if (isContract(msg.sender)) { return false; }
+        else { throw; }
     }
 
 
