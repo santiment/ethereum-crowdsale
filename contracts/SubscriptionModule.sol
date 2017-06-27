@@ -15,7 +15,6 @@ import "./ERC20.sol";
 //
 //ToDo:
 // 4 - check: all functions for access modifiers: _from, _to, _others
-// 5 - check: all function for re-entrancy
 // 6 - check: all _paymentData
 // 8 - validate linking modules and deployment process: attachToken(address token) public
 
@@ -157,7 +156,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
     ///@dev ***** subscription handling *****
     ///@dev some functions are marked as reentrant, even theirs implementation is marked with noReentrancy(LOCK).
     ///     This is intentionally because these noReentrancy(LOCK) restrictions can be lifted in the future.
-    //      Functions would become reentrant.  
+    //      Functions would become reentrant.
     function createSubscription(uint _offerId, uint _expireOn, uint _startOn) public reentrant returns (uint newSubId);
     function cancelSubscription(uint subId) reentrant public;
     function cancelSubscription(uint subId, uint gasReserve) reentrant public;

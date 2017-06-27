@@ -42,6 +42,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     ///@notice attach module managing subscriptions. if subModule==0x0, then disables subscription functionality for this token.
     /// detached module can usually manage subscriptions, but all operations changing token balances are disabled.
     function attachSubscriptionModule(SubscriptionModule subModule)
+    noAnyReentrancy
     external
     only(owner) {
         SUBSCRIPTION_MODULE = subModule;
