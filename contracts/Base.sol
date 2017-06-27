@@ -11,7 +11,7 @@ contract Base {
     }
 
 
-    /// @return True if `_addr` is a contract
+    ///@return True if `_addr` is a contract
     function isContract(address _addr) constant internal returns (bool) {
         if (_addr == 0) return false;
         uint size;
@@ -21,14 +21,39 @@ contract Base {
         return (size > 0);
     }
 
-    //prevents reentrancy attacs
-    bool private locked = false;
-    modifier noReentrancy() {
-        if (locked) throw;
-        locked = true;
+    // *************************************************
+    // *          reentrancy handling                  *
+    // *************************************************
+
+    //@dev predefined locks (up to uint bit length, i.e. 256 possible)
+    uint constant internal L00 = 2 ** 0;
+    uint constant internal L01 = 2 ** 1;
+    uint constant internal L02 = 2 ** 2;
+    uint constant internal L03 = 2 ** 3;
+    uint constant internal L04 = 2 ** 4;
+    uint constant internal L05 = 2 ** 5;
+
+    //prevents reentrancy attacs: specific locks
+    uint private bitlocks = 0;
+    modifier noReentrancy(uint m) {
+        var _locks = bitlocks;
+        if (_locks & m > 0) throw;
+        bitlocks |= m;
         _;
-        locked = false;
+        bitlocks = _locks;
     }
+
+    modifier noAnyReentrancy {
+        var _locks = bitlocks;
+        if (_locks > 0) throw;
+        bitlocks = uint(-1);
+        _;
+        bitlocks = _locks;
+    }
+
+    ///@dev empty marking modifier signaling to user of the marked function , that it can cause an reentrant call.
+    ///     developer should make the caller function reentrant-safe if it use a reentrant function.
+    modifier reentrant { _; }
 
 }
 

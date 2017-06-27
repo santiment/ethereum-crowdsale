@@ -136,7 +136,7 @@ contract CrowdsaleMinter is Owned {
     //accept payments here
     function ()
     payable
-    noReentrancy
+    noAnyReentrancy
     {
         State state = currentState();
         uint amount_allowed;
@@ -166,7 +166,7 @@ contract CrowdsaleMinter is Owned {
 
     function refund() external
     inState(State.REFUND_RUNNING)
-    noReentrancy
+    noAnyReentrancy
     {
         _sendRefund();
     }
@@ -174,7 +174,7 @@ contract CrowdsaleMinter is Owned {
 
     function withdrawFundsAndStartToken() external
     inState(State.WITHDRAWAL_RUNNING)
-    noReentrancy
+    noAnyReentrancy
     only(owner)
     {
         // transfer funds to owner
@@ -192,7 +192,7 @@ contract CrowdsaleMinter is Owned {
     //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
     function mintAllBonuses() external
     inState(State.BONUS_MINTING)
-    noReentrancy
+    noAnyReentrancy
     //only(owner)     //ToDo: think about possibe attac vector if this func is public. It must be public because bonus holder should be able call it.
     {
         assert(!allBonusesAreMinted);
