@@ -155,9 +155,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function paymentFrom(uint _value, bytes _paymentData, address _from, ServiceProvider _to) public returns (bool success);
 
     ///@dev ***** subscription handling *****
-    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) public returns (uint subId);
-    function updateSubscriptionOffer(uint offerId, uint _offerLimit) public;
-    function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId);
+    function createSubscription(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId);
     function cancelSubscription(uint subId) public;
     function cancelSubscription(uint subId, uint gasReserve) public;
     function holdSubscription(uint subId) public returns (bool success);
@@ -170,6 +168,8 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function stateCode(uint subId) public constant returns(uint stateCode);
 
     ///@dev ***** subscription offer handling *****
+    function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) public returns (uint subId);
+    function updateSubscriptionOffer(uint offerId, uint _offerLimit) public;
     function holdSubscriptionOffer(uint offerId) public returns (bool success);
     function unholdSubscriptionOffer(uint offerId) public returns (bool success);
     function cancelSubscriptionOffer(uint offerId) public returns (bool);
@@ -225,7 +225,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     // *              contract states                  *
     // *************************************************
 
-    ///@dev list of all registered service provider contracts impelmented as a map for better lookup.
+    ///@dev list of all registered service provider contracts implemented as a map for better lookup.
     mapping (address=>bool) public providerRegistry;
 
     ///@dev all subscriptions and offers (incl. FINALIZED).
@@ -544,7 +544,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///@param _startOn   - subscription start time; no charges are possible before this time.
     ///                    If the `_startOn` is in the past or is zero, it means start the subscription ASAP.
     //
-    function acceptSubscriptionOffer(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
+    function createSubscription(uint _offerId, uint _expireOn, uint _startOn) public returns (uint newSubId) {
         assert (_startOn < _expireOn);
         Subscription storage offer = subscriptions[_offerId];
         assert (_isOffer(offer));

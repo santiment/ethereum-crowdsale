@@ -173,7 +173,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                     transferFrom: 0
                 })),
             ]).then(([user_balance0, s0]) => {
-                return sub.acceptSubscriptionOffer(offerId, now+expireOn, startOn, {from:user})
+                return sub.createSubscription(offerId, now+expireOn, startOn, {from:user})
                 .then(tx => assertLogEvent(tx, abi_NewSubscription, 'Check: NewSubscription', (e) => ({
                     subId: s0.subscriptionCounter.plus(1),
                     customer : user,
