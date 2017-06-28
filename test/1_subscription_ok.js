@@ -59,18 +59,22 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without snapsho
 //=========================================================
 
     before(function(){
+        // create snapshot
         return evm_snapshot().then(() => {
+            // create (Testable)SAN with accounts and balances
             return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:3300000})
             .then( _instance =>{
                 san = _instance;
                 return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:4100000})
                     .then(_instance => {
                         sub = _instance;
+                        // attach subscription module to SAN contract
                         return san.attachSubscriptionModule(sub.address, {from:PLATFORM_OWNER});
                     }).then(tx => {
                         return TestableProvider.new(sub.address,PROVIDER_OWNER, {from:CREATOR})
                             .then(_instance => {
                                 myProvider=_instance;
+                                // and finally enable service provider (testable provider)
                                 return sub.enableServiceProvider(_instance.address,"0x12345",{from:PLATFORM_OWNER})
                             })
                     })
@@ -80,6 +84,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without snapsho
 
     after(()=>evm_revert);
 
+    // check if all (Testable)SAN balances correspond to the values we've set in "before"
     it('san should be correctly initialized', function() {
         return Promise.all(
             ALL_ACCOUNTS.map(account=>san.balanceOf(account))
@@ -90,6 +95,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without snapsho
         })
     });
 
+    // check if owner and subscription module match the ones we've set
     it('TestableProvider should be correctly initialized', function() {
         return Promise.join(
             myProvider.sub(),
@@ -124,11 +130,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without snapsho
         it('should create a valid offer #'+i, function() {
             var now = ethNow();
             let expireOn = now + offerDef.expireOn;
+            // create an offer..
             return myProvider.createSubscriptionOffer (
                 offerDef.price, offerDef.xrateProviderId, offerDef.chargePeriod, expireOn, offerDef.offerLimit,
                 offerDef.depositAmount, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER}
             )
+            // assert that Event with correct values gets logged
             .then(tx => assertLogEvent(tx,abi_NewOffer, i+':NewOffer event',(s)=>({
                 provider : myProvider.address,
                 offerId  : offerId
