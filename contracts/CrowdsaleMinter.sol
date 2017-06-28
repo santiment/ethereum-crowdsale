@@ -254,19 +254,25 @@ contract CrowdsaleMinter is Owned {
     function _receiveFundsUpTo(uint amount) private
     notTooSmallAmountOnly
     {
+        uint change_to_return;
         require (amount > 0);
         if (msg.value > amount) {
             // accept amount only and return change
-            var change_to_return = msg.value - amount;
-            if (!msg.sender.send(change_to_return)) throw;
+            change_to_return = msg.value - amount;
         } else {
             // accept full amount
             amount = msg.value;
+            change_to_return = 0;
         }
         if (balances[msg.sender] == 0) investors.push(msg.sender);
         balances[msg.sender] += amount;
         total_received_amount += amount;
         _mint(amount,msg.sender);
+        // if we have change to send back, send it back as last action
+        if (change_to_return > 0) {
+            // transfer will throw on failure
+            msg.sender.transfer(change_to_return);
+        }
     }
 
     function _mint(uint amount, address account) private {
