@@ -140,7 +140,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     ///@dev tokens are getting in circulation after token start.
     function mint(uint amount, address account)
     onlyCrowdsaleMinter
-    isNotStartedOnly
+    onlyIfNotStarted
     {
         totalSupply += amount;
         balances[account]+=amount;
@@ -148,7 +148,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
 
     ///@notice start normal operation of the token. No minting is possible after this point.
     function start()
-    isNotStartedOnly
+    onlyIfNotStarted
     only(owner) {
         totalInCirculation = totalSupply;
         isStarted = true;
@@ -167,7 +167,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     }
 
     ///@dev token not started means minting is possible, but usual token operations are not.
-    modifier isNotStartedOnly() {
+    modifier onlyIfNotStarted() {
         if (isStarted) throw;
         _;
     }
