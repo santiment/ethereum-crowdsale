@@ -38,7 +38,7 @@ contract('san', function(accounts){
     const USER_02 = accounts[2];
     const PROVIDER_OWNER = accounts[5];
     const PLATFORM_OWNER = accounts[6];
-    const $an = amount => web3.toWei(amount,'finney')
+    const $an = amount => web3.toWei(amount,'finney');
     const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER, PLATFORM_OWNER];
     const ALL_BALANCES  = [$an(200),  $an(200),     $an(200),           0];
     var PLATFORM_FEE_PER_10000=1;
@@ -51,11 +51,11 @@ const evm_call = (_method, _params) => web3_sendAsync({
     params: _params||[],
     id: new Date().getTime()
 });
-const evm_mine         = ()     => evm_call('evm_mine')
+const evm_mine         = ()     => evm_call('evm_mine');
 const evm_increaseTime = (tsec) => evm_call('evm_increaseTime',[tsec.isBigNumber ? tsec.toNumber() : tsec]);
 const evm_snapshot     = ()     => evm_call('evm_snapshot').then(r=>{snapshotNrStack.push(r.result); return r});
 const evm_revert       = (num)  => evm_call('evm_revert',[num||snapshotNrStack.pop()]);
-const snapshotNrStack  = [];  //workaround for broken evm_revert without shapshot provided.
+const snapshotNrStack  = [];  //workaround for broken evm_revert without snapshot provided.
 //=========================================================
 
     before(function(){
@@ -78,7 +78,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         });
     });
 
-    after(()=>evm_revert)
+    after(()=>evm_revert);
 
     it('san should be correctly initialized', function() {
         return Promise.all(
@@ -340,9 +340,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 paidUntil  : prevState.paidUntil.plus(ethNow(tx.receipt.blockNumber))
                                                 .minus(prevState.onHoldSince)
             }))))
-    })
+    });
 
-    it('subscription #7: PAID ==> [hold/wait/unhold] ==> CANCELED')
+    it('subscription #7: PAID ==> [hold/wait/unhold] ==> CANCELED');
 
 /*
     it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED', function() {
@@ -443,7 +443,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         let e = {
             tx : tx,
             timestamp : ethNow(tx.receipt.blockNumber)
-        }
+        };
         SolidityCoder.decodeParams(typeList, logs[0].data.replace('0x', ''))
               .forEach((v, i) => {e[names[i]]=v});
         return e;
@@ -480,7 +480,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         }).then(balances => {
             [R.balanceFrom,R.balanceTo,R.balancePlatformOwner,R.subscriptionCounter] = balances;
             return R;
-        })
+        });
     }
 
 });
