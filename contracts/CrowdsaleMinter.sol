@@ -109,10 +109,10 @@ contract CrowdsaleMinter is Owned {
     uint public total_received_amount;
     address[] public investors;
 
-    //displays number of uniq investors
+    //displays number of unique investors
     function investorsCount() constant external returns(uint) { return investors.length; }
 
-    //displays received amount in eth upto now
+    //displays received amount in eth up to now
     function TOTAL_RECEIVED_ETH() constant external returns (uint) { return total_received_amount / 1 ether; }
 
     //displays current contract state in human readable form

@@ -137,7 +137,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     //========= Crowdsale Only ===============
     ///@notice mint new token for given account in crowdsale stage
     ///@dev allowed only if token not started yet and only for registered minter.
-    ///@dev tokens are become in circulation after token start.
+    ///@dev tokens are getting in circulation after token start.
     function mint(uint amount, address account)
     onlyCrowdsaleMinter
     isNotStartedOnly
