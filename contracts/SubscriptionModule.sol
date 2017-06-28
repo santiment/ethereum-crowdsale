@@ -14,8 +14,6 @@ import "./ERC20.sol";
 //     it is theirs decision to inform DApps about offer changes or not.
 //
 //ToDo:
-// 4 - check: all functions for access modifiers: _from, _to, _others
-// 6 - check: all _paymentData
 // 8 - validate linking modules and deployment process: attachToken(address token) public
 
 
@@ -32,28 +30,28 @@ contract ServiceProvider {
     ///@dev called to post-approve/reject incoming single payment.
     ///@return `false` causes an exception and reverts the payment.
     //
-    function onPayment(address _from, uint _value, bytes _paymentData) returns (bool);
+    function onPayment(address _from, uint _value, bytes _paymentData) public returns (bool);
 
     ///@dev called to post-approve/reject subscription charge.
     ///@return `false` causes an exception and reverts the operation.
     //
-    function onSubExecuted(uint subId) returns (bool);
+    function onSubExecuted(uint subId) public returns (bool);
 
     ///@dev called to post-approve/reject a creation of the subscription.
     ///@return `false` causes an exception and reverts the operation.
     //
-    function onSubNew(uint newSubId, uint offerId) returns (bool);
+    function onSubNew(uint newSubId, uint offerId) public returns (bool);
 
     ///@dev called to notify service provider about subscription cancellation.
     ///     Provider is not able to prevent the cancellation.
     ///@return <<reserved for future implementation>>
     //
-    function onSubCanceled(uint subId, address caller) returns (bool);
+    function onSubCanceled(uint subId, address caller) public returns (bool);
 
     ///@dev called to notify service provider about subscription got hold/unhold.
     ///@return `false` causes an exception and reverts the operation.
     //
-    function onSubUnHold(uint subId, address caller, bool isOnHold) returns (bool);
+    function onSubUnHold(uint subId, address caller, bool isOnHold) public returns (bool);
 
 
     ///@dev following events should be used by ServiceProvider contract to notify DApps about offer changes.
@@ -88,10 +86,10 @@ contract XRateProvider {
 
     //@dev returns current exchange rate (in form of a simple fraction) from other currency to SAN (f.e. ETH:SAN).
     //@dev fraction numbers are restricted to uint16 to prevent overflow in calculations;
-    function getRate() returns (uint32 /*nominator*/, uint32 /*denominator*/);
+    function getRate() public returns (uint32 /*nominator*/, uint32 /*denominator*/);
 
     //@dev provides a code for another currency, f.e. "ETH" or "USD"
-    function getCode() returns (string);
+    function getCode() public returns (string);
 }
 
 
@@ -164,14 +162,14 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function unholdSubscription(uint subId) public reentrant returns (bool success);
     function executeSubscription(uint subId) public reentrant returns (bool success);
     function postponeDueDate(uint subId, uint newDueDate) public returns (bool success);
-    function returnSubscriptionDesposit(uint subId) external;
-    function claimSubscriptionDeposit(uint subId) external;
+    function returnSubscriptionDesposit(uint subId) public;
+    function claimSubscriptionDeposit(uint subId) public;
     function state(uint subId) public constant returns(string state);
     function stateCode(uint subId) public constant returns(uint stateCode);
 
     ///@dev ***** subscription offer handling *****
     function createSubscriptionOffer(uint _price, uint16 _xrateProviderId, uint _chargePeriod, uint _expireOn, uint _offerLimit, uint _depositValue, uint _startOn, bytes _descriptor) public reentrant returns (uint subId);
-    function updateSubscriptionOffer(uint offerId, uint _offerLimit) external;
+    function updateSubscriptionOffer(uint offerId, uint _offerLimit) public;
     function holdSubscriptionOffer(uint offerId) public returns (bool success);
     function unholdSubscriptionOffer(uint offerId) public returns (bool success);
     function cancelSubscriptionOffer(uint offerId) public returns (bool);
@@ -181,15 +179,15 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function claimDeposit(uint depositId) public;
 
     ///@dev ***** ExchangeRate provider *****
-    function registerXRateProvider(XRateProvider addr) external returns (uint16 xrateProviderId);
+    function registerXRateProvider(XRateProvider addr) public returns (uint16 xrateProviderId);
 
     ///@dev ***** Service provider (payment receiver) *****
-    function enableServiceProvider(ServiceProvider addr, bytes moreInfo) external;
-    function disableServiceProvider(ServiceProvider addr, bytes moreInfo) external;
+    function enableServiceProvider(ServiceProvider addr, bytes moreInfo) public;
+    function disableServiceProvider(ServiceProvider addr, bytes moreInfo) public;
 
 
     ///@dev ***** convenience subscription getter *****
-    function subscriptionDetails(uint subId) external constant returns(
+    function subscriptionDetails(uint subId) public constant returns(
         address transferFrom,
         address transferTo,
         uint pricePerHour,
@@ -201,7 +199,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
         bytes descriptor
     );
 
-    function subscriptionStatus(uint subId) external constant returns(
+    function subscriptionStatus(uint subId) public constant returns(
         uint depositAmount,
         uint expireOn,
         uint execCounter,
@@ -249,7 +247,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     ///@dev Token contract with ERC20ModuleSupport addon.
     ///     Subscription Module operates on its balances via ERC20ModuleSupport interface as trusted module.
-    ERC20ModuleSupport san;
+    ERC20ModuleSupport public san;
 
 
 
@@ -281,14 +279,14 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
 
     ///@dev register a new service provider to the platform.
-    function enableServiceProvider(ServiceProvider addr, bytes moreInfo) external only(owner) {
+    function enableServiceProvider(ServiceProvider addr, bytes moreInfo) public only(owner) {
         providerRegistry[addr] = true;
         ServiceProviderEnabled(addr, moreInfo);
     }
 
 
     ///@dev de-register the service provider with given `addr`.
-    function disableServiceProvider(ServiceProvider addr, bytes moreInfo) external only(owner) {
+    function disableServiceProvider(ServiceProvider addr, bytes moreInfo) public only(owner) {
         delete providerRegistry[addr];
         ServiceProviderDisabled(addr, moreInfo);
     }
@@ -296,7 +294,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     ///@dev register new exchange rate provider.
     ///     XRateProvider can't be de-registered, because they could be still in use by some subscription.
-    function registerXRateProvider(XRateProvider addr) external only(owner) returns (uint16 xrateProviderId) {
+    function registerXRateProvider(XRateProvider addr) public only(owner) returns (uint16 xrateProviderId) {
         xrateProviderId = uint16(xrateProviders.length);
         xrateProviders.push(addr);
         NewXRateProvider(addr, xrateProviderId, msg.sender);
@@ -304,7 +302,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
 
     ///@dev xrateProviders length accessor.
-    function getXRateProviderLength() external constant returns (uint) {
+    function getXRateProviderLength() public constant returns (uint) {
         return xrateProviders.length;
     }
 
@@ -353,7 +351,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     // *************************************************
 
     ///@dev convenience getter for some subscription fields
-    function subscriptionDetails(uint subId) external constant returns (
+    function subscriptionDetails(uint subId) public constant returns (
         address transferFrom,
         address transferTo,
         uint pricePerHour,
@@ -371,7 +369,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     ///@dev convenience getter for some subscription fields
     ///     a caller must know, that the subscription with given id exists, because all these fields can be 0 even the subscription with given id exists.
-    function subscriptionStatus(uint subId) external constant returns(
+    function subscriptionStatus(uint subId) public constant returns(
         uint depositAmount,
         uint expireOn,
         uint execCounter,
@@ -533,7 +531,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        Other offer's parameter can't be updated because they are considered to be a public offer reviewed by customers.
     ///        The service provider should recreate the offer as a new one in case of other changes.
     //
-    function updateSubscriptionOffer(uint _offerId, uint _offerLimit) external {
+    function updateSubscriptionOffer(uint _offerId, uint _offerLimit) public {
         Subscription storage offer = subscriptions[_offerId];
         assert (_isOffer(offer));
         assert (offer.transferTo == msg.sender); //only Provider is allowed to update the offer.
@@ -730,7 +728,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        Customer can anyway collect his deposit after `paidUntil` period is over.
     ///@param subId - subscription holding the deposit
     //
-    function returnSubscriptionDesposit(uint subId) external {
+    function returnSubscriptionDesposit(uint subId) public {
         Subscription storage sub = subscriptions[subId];
         assert (_subscriptionState(sub) == SubState.CANCELED);
         assert (sub.depositAmount > 0); //sanity check
@@ -744,7 +742,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        Customer can anyway collect his deposit after `paidUntil` period is over.
     ///@param subId - subscription holding the deposit
     //
-    function claimSubscriptionDeposit(uint subId) external {
+    function claimSubscriptionDeposit(uint subId) public {
         Subscription storage sub = subscriptions[subId];
         assert (_subscriptionState(sub) == SubState.EXPIRED);
         assert (sub.transferFrom == msg.sender);
