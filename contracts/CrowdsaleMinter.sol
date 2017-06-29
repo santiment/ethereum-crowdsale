@@ -58,9 +58,13 @@ contract CrowdsaleMinter is Owned {
 
     MintableToken      public TOKEN                    = MintableToken(0x00000000000000000000000000);
 
+    // address list, filled with addresses provided by Cofound.it (list of whitelisted addresses from their crowdsale)
     AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x00000000000000000000000000);
+    // Santiment community members, each with min/max amount to buy
     MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0x00000000000000000000000000);
+    // balances from prior presale
     BalanceStorage     public PRESALE_BALANCES         = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
+    // voting contract in which presale buyers had possibility to voluntarily waive their presale bonus
     PresaleBonusVoting public PRESALE_BONUS_VOTING     = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
@@ -222,6 +226,8 @@ contract CrowdsaleMinter is Owned {
         }
     }
 
+    /// @notice sets the address of SAN token which will be sold and minted by this contract,
+    ///  can only be called by the owner and only before the ICO has been started
     function attachToToken(MintableToken tokenAddr) external
     inState(State.BEFORE_START)
     only(owner)
@@ -251,6 +257,8 @@ contract CrowdsaleMinter is Owned {
         if (!msg.sender.send(amount_to_refund)) throw;
     }
 
+    /// @dev this function actually receives the funds and mints the tokens for ICO participants
+    /// @param amount the maximum amount (wei) which still could be bought at this point in time
     function _receiveFundsUpTo(uint amount) private
     notTooSmallAmountOnly
     {
@@ -275,6 +283,7 @@ contract CrowdsaleMinter is Owned {
         }
     }
 
+    // actually mints tokens (token takes care that minting can only be done during crowdsale)
     function _mint(uint amount, address account) private {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
@@ -340,6 +349,8 @@ contract CrowdsaleMinter is Owned {
     // ============ DATA ============
     //
 
+    // participants of presale contract
+    // at 0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2
     address[] PRESALE_ADDRESSES = [
         0xF55DFd2B02Cf3282680C94BD01E9Da044044E6A2,
         0x0D40B53828948b340673674Ae65Ee7f5D8488e33,
