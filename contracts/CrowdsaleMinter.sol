@@ -145,11 +145,11 @@ contract CrowdsaleMinter is Owned {
             var (min, max) = (min_finney * 1 finney, max_finney * 1 finney);
             var sender_balance = balances[msg.sender];
             assert (sender_balance <= max); //sanity check: should be always true;
-            assert (msg.value >= min);      //reject payments less than minimum
+            require (msg.value >= min);      //reject payments less than minimum
             amount_allowed = max - sender_balance;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PRIORITY_SALE) {
-            assert (PRIORITY_ADDRESS_LIST.contains(msg.sender));
+            require (PRIORITY_ADDRESS_LIST.contains(msg.sender));
             amount_allowed = COMMUNITY_PLUS_PRIORITY_SALE_CAP - total_received_amount;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PUBLIC_SALE) {
