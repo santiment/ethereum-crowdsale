@@ -181,10 +181,10 @@ contract CrowdsaleMinter is Owned {
     noAnyReentrancy
     only(owner)
     {
-        // transfer funds to owner
-        if (!owner.send(this.balance)) throw;
+        // transfer funds to owner (transfer will throw on failure)
+        owner.transfer(this.balance);
 
-        //notify token contract to start
+        // notify token contract to start (no minting possible after this point)
         if (TOKEN.call(bytes4(sha3("start()")))) {
             TOKEN_STARTED = true;
             TokenStarted(TOKEN);
@@ -253,8 +253,8 @@ contract CrowdsaleMinter is Owned {
         var amount_to_refund = balances[msg.sender] + msg.value;
         // reset balance
         balances[msg.sender] = 0;
-        // send refund back to sender
-        if (!msg.sender.send(amount_to_refund)) throw;
+        // send refund back to sender (transfer will throw on failure)
+        msg.sender.transfer(amount_to_refund);
     }
 
     /// @dev this function actually receives the funds and mints the tokens for ICO participants
