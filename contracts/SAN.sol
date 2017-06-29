@@ -115,6 +115,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     function _mintFromDeposit(address owner, uint amount)
     public
     onlyTrusted {
+        assert(amount <= totalOnDeposit); // just to be sure, should never happen
         balances[owner] += amount;
         totalOnDeposit -= amount;
         totalInCirculation += amount;
