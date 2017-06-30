@@ -70,6 +70,7 @@ contract CrowdsaleMinter is Owned {
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
+    // Minimum amount 0.5 ETH per ICO participant
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
@@ -160,7 +161,7 @@ contract CrowdsaleMinter is Owned {
             amount_allowed = MAX_TOTAL_AMOUNT_TO_RECEIVE - total_received_amount;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.REFUND_RUNNING) {
-            // any entring call in Refund Phase will cause full refund
+            // any entering call in Refund Phase will cause full refund
             _sendRefund();
         } else {
             throw;
@@ -220,6 +221,7 @@ contract CrowdsaleMinter is Owned {
                 else if (rawVote == 1 wei)  rawVote = 0;       //special case "0%" (no bonus)           ==> (0 ether is   0%)
                 else if (rawVote > 1 ether) rawVote = 1 ether; //max bonus is 100% (should not occur)
 
+                // rawVote will be in the range betwwen:  0 <= rawVote <= 1 ether, thus the division by 1 ether here
                 var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
                 _mint(presale_balance + presale_bonus, addr);
             }
@@ -272,6 +274,7 @@ contract CrowdsaleMinter is Owned {
             amount = msg.value;
             change_to_return = 0;
         }
+        // if this address sends for the first time, add it to investors array
         if (balances[msg.sender] == 0) investors.push(msg.sender);
         balances[msg.sender] += amount;
         total_received_amount += amount;
