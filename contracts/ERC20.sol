@@ -2,6 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./Base.sol";
 
+// ERC20 interface
 contract ERC20 {
 
     function totalSupply() constant returns (uint256 totalSupply) {}
@@ -16,6 +17,9 @@ contract ERC20 {
 
 }
 
+// Extension of standard token interface to fulfill the needs for Santiment subscribtion modules:
+// "minting" and "burning" for deposit represent the process of staking tokens (taking them
+// out of cicrulation) as long as a user is subscribing a service from service provider.
 contract ERC20ModuleSupport {
     function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
     function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
@@ -23,6 +27,8 @@ contract ERC20ModuleSupport {
     function _burnForDeposit(address owner, uint amount) public returns(bool success);
 }
 
+
+// Implementation of ERC 20 interface, SAN token contract will inherit from this contract
 contract ERC20Impl is ERC20, Base {
 
     function transfer(address _to, uint256 _value) isStartedOnly returns (bool success) {
@@ -64,6 +70,7 @@ contract ERC20Impl is ERC20, Base {
     uint256 public totalSupply;
     bool    public isStarted = false;
 
+    // TODO: currently not used anywhere?
     modifier onlyHolder(address holder) {
         if (balanceOf(holder) == 0) throw;
         _;
