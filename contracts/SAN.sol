@@ -127,6 +127,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     public
     onlyTrusted
     returns (bool success) {
+        assert(amount <= totalInCirculation); // just to be safe, should never happen
         if (balances[owner] >= amount) {
             balances[owner] -= amount;
             totalOnDeposit += amount;
