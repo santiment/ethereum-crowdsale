@@ -168,7 +168,9 @@ contract CrowdsaleMinter is Owned {
         }
     }
 
-
+    /// @notice Refunds the ETH to prticipants if: 1) ICO doesn't reach the minimum target or
+    ///  2) if the ICO gets aborted (by emergency stop) or 3) as final fallback if team never claims the funds
+    ///  from this contract after ICO end.
     function refund() external
     inState(State.REFUND_RUNNING)
     noAnyReentrancy
@@ -176,7 +178,9 @@ contract CrowdsaleMinter is Owned {
         _sendRefund();
     }
 
-
+    /// @dev called by the contract owner after the ICO after all tokens have been
+    ///  been minted, to transfer the collected eth to the owner address. Also starts
+    ///  the token (token will be transferable after this point in time)
     function withdrawFundsAndStartToken() external
     inState(State.WITHDRAWAL_RUNNING)
     noAnyReentrancy
@@ -192,6 +196,8 @@ contract CrowdsaleMinter is Owned {
         }
     }
 
+    // event will be logged when the token is started (becomes transferable). No more tokens can be minted after
+    // this point in time.
     event TokenStarted(address tokenAddr);
 
     //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
@@ -237,6 +243,9 @@ contract CrowdsaleMinter is Owned {
         TOKEN = tokenAddr;
     }
 
+    /// @dev Immediately and finally aborts the running ICO. No more funds will be accepted after this
+    ///  call (no matter which ICO phase) and all participants can reclaim their sent eth after this
+    //  (by sending any transaction to the default function).
     function abort() external
     inStateBefore(State.REFUND_RUNNING)
     only(owner)
@@ -248,6 +257,8 @@ contract CrowdsaleMinter is Owned {
     // ======= implementation methods =======
     //
 
+    /// @dev implements the refund functionality. Sends back all ether received in the current transaction
+    ///  plus all ether deposited in the ICO before by the sender.
     function _sendRefund() private
     tokenHoldersOnly
     {
@@ -291,6 +302,7 @@ contract CrowdsaleMinter is Owned {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
+    // returns current state
     function currentState() private constant
     returns (State)
     {
@@ -323,19 +335,19 @@ contract CrowdsaleMinter is Owned {
     // ============ modifiers ============
     //
 
-    //fails if state dosn't match
+    // fails if state dosn't match
     modifier inState(State state) {
         if (state != currentState()) throw;
         _;
     }
 
-    //fails if the current state is not before than the given one.
+    // fails if the current state is not before than the given one.
     modifier inStateBefore(State state) {
         if (currentState() >= state) throw;
         _;
     }
 
-    //accepts calls from token holders only
+    // accepts calls from token holders only
     modifier tokenHoldersOnly(){
         if (balances[msg.sender] == 0) throw;
         _;
