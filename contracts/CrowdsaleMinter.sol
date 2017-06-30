@@ -147,11 +147,14 @@ contract CrowdsaleMinter is Owned {
         uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
             var (min_finney, max_finney) = COMMUNITY_ALLOWANCE_LIST.allowed(msg.sender);
-            var (min, max) = (min_finney * 1 finney, max_finney * 1 finney);
+            var (minimum_for_user, maximum_for_user) = (min_finney * 1 finney, max_finney * 1 finney);
             var sender_balance = balances[msg.sender];
-            assert (sender_balance <= max); //sanity check: should be always true;
-            require (msg.value >= min);      //reject payments less than minimum
-            amount_allowed = max - sender_balance;
+            assert (sender_balance <= maximum_for_user); //sanity check: should be always true;
+            require (msg.value >= minimum_for_user);      //reject payments less than minimum for this whitelisted user
+            // adjust amount so that it:
+            //  1) doesn't exceed this whitelisted user's allowed maximum
+            //  2) and doesn't exceed the total cap for community/priority sale
+            amount_allowed = min((maximum_for_user - sender_balance), (COMMUNITY_PLUS_PRIORITY_SALE_CAP - total_received_amount)) ;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PRIORITY_SALE) {
             require (PRIORITY_ADDRESS_LIST.contains(msg.sender));
