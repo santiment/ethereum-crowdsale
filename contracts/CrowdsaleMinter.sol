@@ -73,6 +73,7 @@ contract CrowdsaleMinter is Owned {
         //check configuration if something in setup is looking weird
         if (
             TOKEN_PER_ETH == 0
+            || TEAM_BONUS_PER_CENT + ADVISORS_AND_PARTNERS_PER_CENT >=100
             || MIN_ACCEPTED_AMOUNT_FINNEY < 1
             || owner == 0x0
             || address(COMMUNITY_ALLOWANCE_LIST) == 0x0
@@ -196,10 +197,27 @@ contract CrowdsaleMinter is Owned {
         assert(!allBonusesAreMinted);
         allBonusesAreMinted = true;
 
-        //mint group bonuses
-        _mint(total_received_amount * TEAM_BONUS_PER_CENT / 100, TEAM_GROUP_WALLET);
-        _mint(total_received_amount * ADVISORS_AND_PARTNERS_PER_CENT / 100, ADVISERS_AND_FRIENDS_WALLET);
+        uint TEAM_AND_PARTNERS_PER_CENT = TEAM_BONUS_PER_CENT + ADVISORS_AND_PARTNERS_PER_CENT;
 
+        uint total_presale_amount_with_bonus = mintPresaleBonuses();
+        uint total_collected_amount = total_received_amount + total_presale_amount_with_bonus;
+        uint extra_amount = total_collected_amount * TEAM_AND_PARTNERS_PER_CENT / (100 - TEAM_AND_PARTNERS_PER_CENT);
+        uint extra_team_amount = extra_amount * TEAM_BONUS_PER_CENT / TEAM_AND_PARTNERS_PER_CENT;
+        uint extra_partners_amount = extra_amount * ADVISORS_AND_PARTNERS_PER_CENT / TEAM_AND_PARTNERS_PER_CENT;
+
+        //beautify total supply: round down to full eth.
+        uint total_to_mint = total_collected_amount + extra_amount;
+        uint round_remainder = total_to_mint - (total_to_mint / 1 ether * 1 ether);
+        extra_team_amount -= round_remainder; //this will reduce total_supply to rounded value
+
+        //mint group bonuses
+        _mint(extra_team_amount , TEAM_GROUP_WALLET);
+        _mint(extra_partners_amount, ADVISERS_AND_FRIENDS_WALLET);
+
+    }
+
+    function mintPresaleBonuses() internal returns(uint amount) {
+        uint total_presale_amount_with_bonus = 0;
         //mint presale bonuses
         for(uint i=0; i < PRESALE_ADDRESSES.length; ++i) {
             address addr = PRESALE_ADDRESSES[i];
@@ -219,9 +237,12 @@ contract CrowdsaleMinter is Owned {
                 else if (rawVote > 1 ether)    rawVote = 1 ether; //max bonus is 100% (should not occur)
 
                 var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
-                _mint(presale_balance + presale_bonus, addr);
+                var amount_with_bonus = presale_balance + presale_bonus;
+                _mint(amount_with_bonus, addr);
+                total_presale_amount_with_bonus += amount_with_bonus;
             }
-        }
+        }//for
+        return total_presale_amount_with_bonus;
     }
 
     function attachToToken(MintableToken tokenAddr) external
