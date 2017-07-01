@@ -48,8 +48,6 @@ contract CrowdsaleMinter is Owned {
     uint public constant PUBLIC_SALE_END      = 0; /* approx. 30.07.2017 00:00 */
     uint public constant WITHDRAWAL_END       = 0; /* approx. 30.07.2017 00:00 */
 
-    address public constant owner = 0x00000000000000000000000000;
-
     address public constant TEAM_GROUP_WALLET           = 0x00000000000000000000000000;
     address public constant ADVISERS_AND_FRIENDS_WALLET = 0x00000000000000000000000000;
 
