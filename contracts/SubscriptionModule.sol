@@ -84,16 +84,16 @@ contract ServiceProvider {
 //
 contract XRateProvider {
 
-    //@dev returns current exchange rate (in form of a simple fraction) from other currency to SAN (f.e. ETH:SAN).
-    //@dev fraction numbers are restricted to uint16 to prevent overflow in calculations;
+    ///@dev returns current exchange rate (in form of a simple fraction) from other currency to SAN (f.e. ETH:SAN).
+    ///@dev fraction numbers are restricted to uint16 to prevent overflow in calculations;
     function getRate() public returns (uint32 /*nominator*/, uint32 /*denominator*/);
 
-    //@dev provides a code for another currency, f.e. "ETH" or "USD"
+    ///@dev provides a code for another currency, f.e. "ETH" or "USD"
     function getCode() public returns (string);
 }
 
 
-//@dev data structure for SubscriptionModule
+///@dev data structure for SubscriptionModule
 contract SubscriptionBase {
 
     enum SubState   {NOT_EXIST, BEFORE_START, PAID, CHARGEABLE, ON_HOLD, CANCELED, EXPIRED, FINALIZED}
@@ -102,7 +102,7 @@ contract SubscriptionBase {
     string[] internal SUB_STATES   = ["NOT_EXIST", "BEFORE_START", "PAID", "CHARGEABLE", "ON_HOLD", "CANCELED", "EXPIRED", "FINALIZED" ];
     string[] internal OFFER_STATES = ["NOT_EXIST", "BEFORE_START", "ACTIVE", "SOLD_OUT", "ON_HOLD", "EXPIRED"];
 
-    //@dev subscription and subscription offer use the same structure. Offer is technically a template for subscription.
+    ///@dev subscription and subscription offer use the same structure. Offer is technically a template for subscription.
     struct Subscription {
         address transferFrom;   // customer (unset in subscription offer)
         address transferTo;     // service provider
@@ -216,7 +216,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
 
 
-//@dev implementation
+///@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
 
     string public constant VERSION = "0.1.0";
@@ -751,7 +751,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     }
 
 
-    //@dev returns subscription deposit to customer
+    ///@dev returns subscription deposit to customer
     function _returnSubscriptionDesposit(uint subId, Subscription storage sub) internal {
         uint depositAmount = sub.depositAmount;
         sub.depositAmount = 0;

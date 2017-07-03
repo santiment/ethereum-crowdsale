@@ -33,7 +33,7 @@ contract Base {
     uint constant internal L04 = 2 ** 4;
     uint constant internal L05 = 2 ** 5;
 
-    //prevents reentrancy attacs: specific locks
+    //prevents reentrancy attacks: specific locks
     uint private bitlocks = 0;
     modifier noReentrancy(uint m) {
         var _locks = bitlocks;

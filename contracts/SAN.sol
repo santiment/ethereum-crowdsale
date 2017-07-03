@@ -115,6 +115,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     function _mintFromDeposit(address owner, uint amount)
     public
     onlyTrusted {
+        assert(amount <= totalOnDeposit); // just to be sure, should never happen
         balances[owner] += amount;
         totalOnDeposit -= amount;
         totalInCirculation += amount;
@@ -126,6 +127,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     public
     onlyTrusted
     returns (bool success) {
+        assert(amount <= totalInCirculation); // just to be safe, should never happen
         if (balances[owner] >= amount) {
             balances[owner] -= amount;
             totalOnDeposit += amount;
@@ -137,10 +139,10 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     //========= Crowdsale Only ===============
     ///@notice mint new token for given account in crowdsale stage
     ///@dev allowed only if token not started yet and only for registered minter.
-    ///@dev tokens are become in circulation after token start.
+    ///@dev tokens are getting in circulation after token start.
     function mint(uint amount, address account)
     onlyCrowdsaleMinter
-    isNotStartedOnly
+    onlyIfNotStarted
     {
         totalSupply += amount;
         balances[account]+=amount;
@@ -148,7 +150,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
 
     ///@notice start normal operation of the token. No minting is possible after this point.
     function start()
-    isNotStartedOnly
+    onlyIfNotStarted
     only(owner) {
         totalInCirculation = totalSupply;
         isStarted = true;
@@ -167,7 +169,7 @@ contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSuppo
     }
 
     ///@dev token not started means minting is possible, but usual token operations are not.
-    modifier isNotStartedOnly() {
+    modifier onlyIfNotStarted() {
         if (isStarted) throw;
         _;
     }

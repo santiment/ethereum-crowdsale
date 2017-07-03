@@ -38,7 +38,7 @@ contract('san', function(accounts){
     const USER_02 = accounts[2];
     const PROVIDER_OWNER = accounts[5];
     const PLATFORM_OWNER = accounts[6];
-    const $an = amount => web3.toWei(amount,'finney')
+    const $an = amount => web3.toWei(amount,'finney');
     const ALL_ACCOUNTS  = [USER_01,  USER_02, PROVIDER_OWNER, PLATFORM_OWNER];
     const ALL_BALANCES  = [$an(200),  $an(200),     $an(200),           0];
     var PLATFORM_FEE_PER_10000=1;
@@ -51,26 +51,30 @@ const evm_call = (_method, _params) => web3_sendAsync({
     params: _params||[],
     id: new Date().getTime()
 });
-const evm_mine         = ()     => evm_call('evm_mine')
+const evm_mine         = ()     => evm_call('evm_mine');
 const evm_increaseTime = (tsec) => evm_call('evm_increaseTime',[tsec.isBigNumber ? tsec.toNumber() : tsec]);
 const evm_snapshot     = ()     => evm_call('evm_snapshot').then(r=>{snapshotNrStack.push(r.result); return r});
 const evm_revert       = (num)  => evm_call('evm_revert',[num||snapshotNrStack.pop()]);
-const snapshotNrStack  = [];  //workaround for broken evm_revert without shapshot provided.
+const snapshotNrStack  = [];  //workaround for broken evm_revert without snapshot provided.
 //=========================================================
 
     before(function(){
+        // create snapshot
         return evm_snapshot().then(() => {
+            // create (Testable)SAN with accounts and balances
             return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:3300000})
             .then( _instance =>{
                 san = _instance;
                 return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:4100000})
                     .then(_instance => {
                         sub = _instance;
+                        // attach subscription module to SAN contract
                         return san.attachSubscriptionModule(sub.address, {from:PLATFORM_OWNER});
                     }).then(tx => {
                         return TestableProvider.new(sub.address,PROVIDER_OWNER, {from:CREATOR})
                             .then(_instance => {
                                 myProvider=_instance;
+                                // and finally enable service provider (testable provider)
                                 return sub.enableServiceProvider(_instance.address,"0x12345",{from:PLATFORM_OWNER})
                             })
                     })
@@ -78,8 +82,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         });
     });
 
-    after(()=>evm_revert)
+    after(()=>evm_revert);
 
+    // check if all (Testable)SAN balances correspond to the values we've set in "before"
     it('san should be correctly initialized', function() {
         return Promise.all(
             ALL_ACCOUNTS.map(account=>san.balanceOf(account))
@@ -90,6 +95,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         })
     });
 
+    // check if owner and subscription module match the ones we've set
     it('TestableProvider should be correctly initialized', function() {
         return Promise.join(
             myProvider.sub(),
@@ -124,11 +130,13 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         it('should create a valid offer #'+i, function() {
             var now = ethNow();
             let expireOn = now + offerDef.expireOn;
+            // create an offer..
             return myProvider.createSubscriptionOffer (
                 offerDef.price, offerDef.xrateProviderId, offerDef.chargePeriod, expireOn, offerDef.offerLimit,
                 offerDef.depositAmount, offerDef.startOn, offerDef.descriptor
                 ,{from:PROVIDER_OWNER}
             )
+            // assert that Event with correct values gets logged
             .then(tx => assertLogEvent(tx,abi_NewOffer, i+':NewOffer event',(s)=>({
                 provider : myProvider.address,
                 offerId  : offerId
@@ -340,9 +348,9 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
                 paidUntil  : prevState.paidUntil.plus(ethNow(tx.receipt.blockNumber))
                                                 .minus(prevState.onHoldSince)
             }))))
-    })
+    });
 
-    it('subscription #7: PAID ==> [hold/wait/unhold] ==> CANCELED')
+    it('subscription #7: PAID ==> [hold/wait/unhold] ==> CANCELED');
 
 /*
     it('subscription #7: PAID == [hold/wait/unhold] ==> CANCELED', function() {
@@ -443,7 +451,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         let e = {
             tx : tx,
             timestamp : ethNow(tx.receipt.blockNumber)
-        }
+        };
         SolidityCoder.decodeParams(typeList, logs[0].data.replace('0x', ''))
               .forEach((v, i) => {e[names[i]]=v});
         return e;
@@ -480,7 +488,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
         }).then(balances => {
             [R.balanceFrom,R.balanceTo,R.balancePlatformOwner,R.subscriptionCounter] = balances;
             return R;
-        })
+        });
     }
 
 });

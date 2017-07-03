@@ -56,14 +56,19 @@ contract CrowdsaleMinter is Owned {
 
     MintableToken      public TOKEN                    = MintableToken(0x00000000000000000000000000);
 
+    // address list, filled with addresses provided by Cofound.it (list of whitelisted addresses from their crowdsale)
     AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x00000000000000000000000000);
+    // Santiment community members, each with min/max amount to buy
     MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0x00000000000000000000000000);
+    // balances from prior presale
     BalanceStorage     public PRESALE_BALANCES         = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
+    // voting contract in which presale buyers had possibility to voluntarily waive their presale bonus
     PresaleBonusVoting public PRESALE_BONUS_VOTING     = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
     uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
     uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
     uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
+    // Minimum amount 0.5 ETH per ICO participant
     uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
@@ -108,10 +113,10 @@ contract CrowdsaleMinter is Owned {
     uint public total_received_amount;
     address[] public investors;
 
-    //displays number of uniq investors
+    //displays number of unique investors
     function investorsCount() constant external returns(uint) { return investors.length; }
 
-    //displays received amount in eth upto now
+    //displays received amount in eth up to now
     function TOTAL_RECEIVED_ETH() constant external returns (uint) { return total_received_amount / 1 ether; }
 
     //displays current contract state in human readable form
@@ -141,28 +146,33 @@ contract CrowdsaleMinter is Owned {
         uint amount_allowed;
         if (state == State.COMMUNITY_SALE) {
             var (min_finney, max_finney) = COMMUNITY_ALLOWANCE_LIST.allowed(msg.sender);
-            var (min, max) = (min_finney * 1 finney, max_finney * 1 finney);
+            var (minimum_for_user, maximum_for_user) = (min_finney * 1 finney, max_finney * 1 finney);
             var sender_balance = balances[msg.sender];
-            assert (sender_balance <= max); //sanity check: should be always true;
-            assert (msg.value >= min);      //reject payments less than minimum
-            amount_allowed = max - sender_balance;
+            assert (sender_balance <= maximum_for_user); //sanity check: should be always true;
+            require (msg.value >= minimum_for_user);      //reject payments less than minimum for this whitelisted user
+            // adjust amount so that it:
+            //  1) doesn't exceed this whitelisted user's allowed maximum
+            //  2) and doesn't exceed the total cap for community/priority sale
+            amount_allowed = min((maximum_for_user - sender_balance), (COMMUNITY_PLUS_PRIORITY_SALE_CAP - total_received_amount)) ;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PRIORITY_SALE) {
-            assert (PRIORITY_ADDRESS_LIST.contains(msg.sender));
+            require (PRIORITY_ADDRESS_LIST.contains(msg.sender));
             amount_allowed = COMMUNITY_PLUS_PRIORITY_SALE_CAP - total_received_amount;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.PUBLIC_SALE) {
             amount_allowed = MAX_TOTAL_AMOUNT_TO_RECEIVE - total_received_amount;
             _receiveFundsUpTo(amount_allowed);
         } else if (state == State.REFUND_RUNNING) {
-            // any entring call in Refund Phase will cause full refund
+            // any entering call in Refund Phase will cause full refund
             _sendRefund();
         } else {
             throw;
         }
     }
 
-
+    /// @notice Refunds the ETH to prticipants if: 1) ICO doesn't reach the minimum target or
+    ///  2) if the ICO gets aborted (by emergency stop) or 3) as final fallback if team never claims the funds
+    ///  from this contract after ICO end.
     function refund() external
     inState(State.REFUND_RUNNING)
     noAnyReentrancy
@@ -170,22 +180,26 @@ contract CrowdsaleMinter is Owned {
         _sendRefund();
     }
 
-
+    /// @dev called by the contract owner after the ICO after all tokens have been
+    ///  been minted, to transfer the collected eth to the owner address. Also starts
+    ///  the token (token will be transferable after this point in time)
     function withdrawFundsAndStartToken() external
     inState(State.WITHDRAWAL_RUNNING)
     noAnyReentrancy
     only(owner)
     {
-        // transfer funds to owner
-        if (!owner.send(this.balance)) throw;
+        // transfer funds to owner (transfer will throw on failure)
+        owner.transfer(this.balance);
 
-        //notify token contract to start
+        // notify token contract to start (no minting possible after this point)
         if (TOKEN.call(bytes4(sha3("start()")))) {
             TOKEN_STARTED = true;
             TokenStarted(TOKEN);
         }
     }
 
+    // event will be logged when the token is started (becomes transferable). No more tokens can be minted after
+    // this point in time.
     event TokenStarted(address tokenAddr);
 
     //there are around 40 addresses in PRESALE_ADDRESSES list. Everything fits into single Tx.
@@ -236,6 +250,7 @@ contract CrowdsaleMinter is Owned {
                 else if (rawVote <= 10 finney) rawVote = 0;       //special case "0%" (no bonus)           ==> (0 ether is   0%)
                 else if (rawVote > 1 ether)    rawVote = 1 ether; //max bonus is 100% (should not occur)
 
+                // rawVote will be in the range betwwen:  0 <= rawVote <= 1 ether, thus the division by 1 ether here
                 var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
                 var amount_with_bonus = presale_balance + presale_bonus;
                 _mint(amount_with_bonus, addr);
@@ -245,6 +260,8 @@ contract CrowdsaleMinter is Owned {
         return total_presale_amount_with_bonus;
     }
 
+    /// @notice sets the address of SAN token which will be sold and minted by this contract,
+    ///  can only be called by the owner and only before the ICO has been started
     function attachToToken(MintableToken tokenAddr) external
     inState(State.BEFORE_START)
     only(owner)
@@ -252,6 +269,9 @@ contract CrowdsaleMinter is Owned {
         TOKEN = tokenAddr;
     }
 
+    /// @dev Immediately and finally aborts the running ICO. No more funds will be accepted after this
+    ///  call (no matter which ICO phase) and all participants can reclaim their sent eth after this
+    //  (by sending any transaction to the default function).
     function abort() external
     inStateBefore(State.REFUND_RUNNING)
     only(owner)
@@ -263,6 +283,8 @@ contract CrowdsaleMinter is Owned {
     // ======= implementation methods =======
     //
 
+    /// @dev implements the refund functionality. Sends back all ether received in the current transaction
+    ///  plus all ether deposited in the ICO before by the sender.
     function _sendRefund() private
     tokenHoldersOnly
     {
@@ -270,32 +292,43 @@ contract CrowdsaleMinter is Owned {
         var amount_to_refund = balances[msg.sender] + msg.value;
         // reset balance
         balances[msg.sender] = 0;
-        // send refund back to sender
-        if (!msg.sender.send(amount_to_refund)) throw;
+        // send refund back to sender (transfer will throw on failure)
+        msg.sender.transfer(amount_to_refund);
     }
 
+    /// @dev this function actually receives the funds and mints the tokens for ICO participants
+    /// @param amount the maximum amount (wei) which still could be bought at this point in time
     function _receiveFundsUpTo(uint amount) private
     notTooSmallAmountOnly
     {
+        uint change_to_return;
         require (amount > 0);
         if (msg.value > amount) {
             // accept amount only and return change
-            var change_to_return = msg.value - amount;
-            if (!msg.sender.send(change_to_return)) throw;
+            change_to_return = msg.value - amount;
         } else {
             // accept full amount
             amount = msg.value;
+            change_to_return = 0;
         }
+        // if this address sends for the first time, add it to investors array
         if (balances[msg.sender] == 0) investors.push(msg.sender);
         balances[msg.sender] += amount;
         total_received_amount += amount;
         _mint(amount,msg.sender);
+        // if we have change to send back, send it back as last action
+        if (change_to_return > 0) {
+            // transfer will throw on failure
+            msg.sender.transfer(change_to_return);
+        }
     }
 
+    // actually mints tokens (token takes care that minting can only be done during crowdsale)
     function _mint(uint amount, address account) private {
         MintableToken(TOKEN).mint(amount * TOKEN_PER_ETH, account);
     }
 
+    // returns current state
     function currentState() private constant
     returns (State)
     {
@@ -328,19 +361,19 @@ contract CrowdsaleMinter is Owned {
     // ============ modifiers ============
     //
 
-    //fails if state dosn't match
+    // fails if state dosn't match
     modifier inState(State state) {
         if (state != currentState()) throw;
         _;
     }
 
-    //fails if the current state is not before than the given one.
+    // fails if the current state is not before than the given one.
     modifier inStateBefore(State state) {
         if (currentState() >= state) throw;
         _;
     }
 
-    //accepts calls from token holders only
+    // accepts calls from token holders only
     modifier tokenHoldersOnly(){
         if (balances[msg.sender] == 0) throw;
         _;
@@ -357,6 +390,8 @@ contract CrowdsaleMinter is Owned {
     // ============ DATA ============
     //
 
+    // participants of presale contract
+    // at 0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2
     address[] PRESALE_ADDRESSES = [
         0xF55DFd2B02Cf3282680C94BD01E9Da044044E6A2,
         0x0D40B53828948b340673674Ae65Ee7f5D8488e33,
