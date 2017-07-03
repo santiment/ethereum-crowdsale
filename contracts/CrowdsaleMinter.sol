@@ -22,19 +22,19 @@ pragma solidity ^0.4.11;
 import "./Base.sol";
 
 contract BalanceStorage {
-    function balances(address account) public returns(uint balance);
+    function balances(address account) public constant returns(uint balance);
 }
 
 contract AddressList {
-    function contains(address addr) public returns (bool);
+    function contains(address addr) public constant returns (bool);
 }
 
 contract MinMaxWhiteList {
-    function allowed(address addr) public returns (uint /*finney*/, uint /*finney*/ );
+    function allowed(address addr) public constant returns (uint /*finney*/, uint /*finney*/ );
 }
 
 contract PresaleBonusVoting {
-    function rawVotes(address addr) public returns (uint rawVote);
+    function rawVotes(address addr) public constant returns (uint rawVote);
 }
 
 contract CrowdsaleMinter is Owned {
@@ -223,28 +223,34 @@ contract CrowdsaleMinter is Owned {
         //mint presale bonuses
         for(uint i=0; i < PRESALE_ADDRESSES.length; ++i) {
             address addr = PRESALE_ADDRESSES[i];
-            uint presale_balance = PRESALE_BALANCES.balances(addr);
-            if (presale_balance > 0) {
-
-                // this calculation is about waived pre-sale bonus.
-                // rawVote contains a value [0..1 ether].
-                //     0 ether    - means "default value" or "no vote" : 100% bonus saved
-                //     1 ether    - means "vote 100%" : 100% bonus saved
-                //    <=10 finney - special value "vote 0%" : no bonus at all (100% bonus waived).
-                //  other value - "PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether" is an effective bonus per cent for particular presale member.
-                //
-                var rawVote = PRESALE_BONUS_VOTING.rawVotes(addr);
-                if (rawVote == 0)              rawVote = 1 ether; //special case "no vote" (default value) ==> (1 ether is 100%)
-                else if (rawVote <= 10 finney) rawVote = 0;       //special case "0%" (no bonus)           ==> (0 ether is   0%)
-                else if (rawVote > 1 ether)    rawVote = 1 ether; //max bonus is 100% (should not occur)
-
-                var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
-                var amount_with_bonus = presale_balance + presale_bonus;
+            var amount_with_bonus = presaleTokenAmount(addr);
+            if (amount_with_bonus>0) {
                 _mint(amount_with_bonus, addr);
                 total_presale_amount_with_bonus += amount_with_bonus;
             }
         }//for
         return total_presale_amount_with_bonus;
+    }
+
+    function presaleTokenAmount(address addr) public constant returns(uint){
+        uint presale_balance = PRESALE_BALANCES.balances(addr);
+        if (presale_balance > 0) {
+            // this calculation is about waived pre-sale bonus.
+            // rawVote contains a value [0..1 ether].
+            //     0 ether    - means "default value" or "no vote" : 100% bonus saved
+            //     1 ether    - means "vote 100%" : 100% bonus saved
+            //    <=10 finney - special value "vote 0%" : no bonus at all (100% bonus waived).
+            //  other value - "PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether" is an effective bonus per cent for particular presale member.
+            //
+            var rawVote = PRESALE_BONUS_VOTING.rawVotes(addr);
+            if (rawVote == 0)              rawVote = 1 ether; //special case "no vote" (default value) ==> (1 ether is 100%)
+            else if (rawVote <= 10 finney) rawVote = 0;       //special case "0%" (no bonus)           ==> (0 ether is   0%)
+            else if (rawVote > 1 ether)    rawVote = 1 ether; //max bonus is 100% (should not occur)
+            var presale_bonus = presale_balance * PRE_SALE_BONUS_PER_CENT * rawVote / 1 ether / 100;
+            return presale_balance + presale_bonus;
+        } else {
+            return 0;
+        }
     }
 
     function attachToToken(MintableToken tokenAddr) external
