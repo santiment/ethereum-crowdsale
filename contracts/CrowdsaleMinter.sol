@@ -39,7 +39,7 @@ contract PresaleBonusVoting {
 
 contract CrowdsaleMinter is Owned {
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.2.1";
 
     /* ====== configuration START ====== */
     uint public constant COMMUNITY_SALE_START = 0; /* approx. 30.07.2017 00:00 */
@@ -56,8 +56,8 @@ contract CrowdsaleMinter is Owned {
 
     MintableToken      public TOKEN                    = MintableToken(0x00000000000000000000000000);
 
-    AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x00000000000000000000000000);
-    MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0x00000000000000000000000000);
+    AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x9411Cf70F97C2ED09325e58629D48401aEd50F89);
+    MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0xd2675d3ea478692ad34f09fa1f8bda67a9696bf7);
     BalanceStorage     public PRESALE_BALANCES         = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
     PresaleBonusVoting public PRESALE_BONUS_VOTING     = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
@@ -116,6 +116,9 @@ contract CrowdsaleMinter is Owned {
 
     //displays current contract state in human readable form
     function state() constant external returns (string) { return stateNames[ uint(currentState()) ]; }
+
+    function san_whitelist(address addr) public constant returns(uint, uint) { return COMMUNITY_ALLOWANCE_LIST.allowed(addr); }
+    function cfi_whitelist(address addr) public constant returns(bool) { return PRIORITY_ADDRESS_LIST.contains(addr); }
 
     /* ====== public states END ====== */
 
@@ -192,7 +195,6 @@ contract CrowdsaleMinter is Owned {
     function mintAllBonuses() external
     inState(State.BONUS_MINTING)
     noAnyReentrancy
-    //only(owner)     //ToDo: think about possibe attac vector if this func is public. It must be public because bonus holder should be able call it.
     {
         assert(!allBonusesAreMinted);
         allBonusesAreMinted = true;
