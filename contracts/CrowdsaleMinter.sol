@@ -30,7 +30,7 @@ contract AddressList {
 }
 
 contract MinMaxWhiteList {
-    function allowed(address addr) public returns (uint24 /*finney*/, uint24 /*finney*/ );
+    function allowed(address addr) public returns (uint /*finney*/, uint /*finney*/ );
 }
 
 contract PresaleBonusVoting {
