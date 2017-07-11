@@ -275,11 +275,13 @@ contract SubscriptionBase {
     struct Deposit {
         uint value;         // value on deposit
         address owner;      // usually a customer
+        uint createdOn;     // deposit created timestamp
+        uint lockTime;      // deposit locked for time period
         bytes descriptor;   // service related descriptor to be evaluated by service provider
     }
 
     event NewSubscription(address customer, address service, uint offerId, uint subId);
-    event NewDeposit(uint depositId, uint value, address sender);
+    event NewDeposit(uint depositId, uint value, uint lockTime, address sender);
     event NewXRateProvider(address addr, uint16 xRateProviderId, address sender);
     event DepositReturned(uint depositId, address returnedTo);
     event SubscriptionDepositReturned(uint subId, uint amount, address returnedTo, address sender);
@@ -326,7 +328,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
     function cancelSubscriptionOffer(uint offerId) public returns (bool);
 
     ///@dev ***** simple deposit handling *****
-    function createDeposit(uint _value, bytes _descriptor) public returns (uint subId);
+    function createDeposit(uint _value, uint lockTime, bytes _descriptor) public returns (uint subId);
     function claimDeposit(uint depositId) public;
 
     ///@dev ***** ExchangeRate provider *****
@@ -924,15 +926,17 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        Service Provider should reject deposit with unknown descriptor, because most probably it is in use for some another service.
     ///@return depositId - a handle to claim back the deposit later.
     //
-    function createDeposit(uint _value, bytes _descriptor) public returns (uint depositId) {
+    function createDeposit(uint _value, uint _lockTime, bytes _descriptor) public returns (uint depositId) {
         require (_value > 0);
         assert (san._burnForDeposit(msg.sender,_value));
         deposits[++depositCounter] = Deposit ({
             owner : msg.sender,
             value : _value,
+            createdOn : now,
+            lockTime : _lockTime,
             descriptor : _descriptor
         });
-        NewDeposit(depositCounter, _value, msg.sender);
+        NewDeposit(depositCounter, _value, _lockTime, msg.sender);
         return depositCounter;
     }
 
@@ -944,6 +948,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     function claimDeposit(uint _depositId) public {
         var deposit = deposits[_depositId];
         require (deposit.owner == msg.sender);
+        assert (deposit.lockTime == 0 || deposit.createdOn +  deposit.lockTime < now);
         var value = deposits[_depositId].value;
         delete deposits[_depositId];
         san._mintFromDeposit(msg.sender, value);

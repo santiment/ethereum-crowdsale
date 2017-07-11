@@ -164,7 +164,7 @@ contract SubscriptionBase {
         uint value;         // value on deposit
         address owner;      // usually a customer
         uint createdOn;     // deposit created timestamp
-        uint lockPeriod;    // deposit locked for time period
+        uint lockTime;      // deposit locked for time period
         bytes descriptor;   // service related descriptor to be evaluated by service provider
     }
 

@@ -282,24 +282,29 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     });
 
 
-    [[USER_01, 112, web3.toHex("deposit 1")]]
-    .forEach(([user, amount, info],i)=>{
+    [[USER_01, 112, 3, web3.toHex("deposit 1")]]
+    .forEach(([user, amount, lockTime, info],i)=>{
         it('create / claim deposite',function(){
             return san.balanceOf(user).then(user_balance0 => {
-                return sub.createDeposit(amount, info, {from:USER_01})
+                return sub.createDeposit(amount, lockTime, info, {from:USER_01})
                     .then(tx => assertLogEvent(tx,abi_NewDeposit,i+'Check: event NewDeposit created. ', (evnt)=> ({
                         depositId : assert.ok(new BigNumber(evnt.depositId).isBigNumber),
-                        value : amount,
-                        sender: user
+                        value     : amount,
+                        lockTime  : lockTime,
+                        sender    : user
                     })))
                     .then(evnt => assertDeposit(evnt.depositId, i+'Check: NewDeposit object', (s1)=> ({
                         depositId   : evnt.depositId,
                         value       : evnt.value,
+                        lockTime    : lockTime,
                         owner       : evnt.sender,
                         descriptor  : info,
                         balanceFrom : user_balance0.minus(s1.value)
                     })))
-                    .then(s1 => sub.claimDeposit(s1.depositId,{from:USER_01}))
+                    .then(s1 => sub.claimDeposit(s1.depositId,{from:USER_01})
+                        .then(tx=>done(tx))
+                        .catch(tx=>evm_increaseTime(lockTime+1).then(evm_mine))
+                        .then(tx => sub.claimDeposit(s1.depositId,{from:USER_01})))
                     .then(tx => assertLogEvent(tx,abi_DepositReturned,i+'Check: event DepositReturned created', (evnt)=> ({
                         depositId : evnt.depositId
                     })))
