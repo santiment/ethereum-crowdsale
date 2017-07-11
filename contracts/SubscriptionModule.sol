@@ -16,9 +16,9 @@ pragma solidity ^0.4.11;
 // ====
 //
 
-/// @author Santiment LLC
+/// @author ethernian for Santiment LLC
 /// @title  Subscription Module for SAN - santiment token
-
+/// @notice report bugs to: bugs@ethernian.com
 contract Base {
 
     function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }

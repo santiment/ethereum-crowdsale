@@ -283,7 +283,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        });
     });
 
-        it.only('stop/resume operations',function(done){
+        it('stop/resume operations',function(done){
             let suspendTime = 10;
             sub.suspend(suspendTime, {from:PLATFORM_OWNER})
             .then(tx => assertLogEvent(tx,abi_SubModuleSuspended,'Check: event SubModuleSuspended fired. ', (evnt)=> ({
