@@ -63,7 +63,7 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
             return TestableSAN.new(ALL_ACCOUNTS, ALL_BALANCES, {from:PLATFORM_OWNER, gas:3300000})
             .then( _instance =>{
                 san = _instance;
-                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:4100000})
+                return SubscriptionModule.new(san, {from:PLATFORM_OWNER, gas:4400000})
                     .then(_instance => {
                         sub = _instance;
                         return san.attachSubscriptionModule(sub.address, {from:PLATFORM_OWNER});
@@ -112,6 +112,8 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
     const abi_Payment = SAN.abi.find(e => e.name==='Payment');
     const abi_NewOffer = TestableProvider.abi.find(e => e.name==='NewOffer');
     const abi_SubCanceled = TestableProvider.abi.find(e => e.name==='SubCanceled');
+    const abi_SubModuleSuspended = SubscriptionModule.abi.find(e => e.name==='SubModuleSuspended');
+
 
 
     [
@@ -281,6 +283,26 @@ const snapshotNrStack  = [];  //workaround for broken evm_revert without shapsho
        });
     });
 
+        it.only('stop/resume operations',function(done){
+            let suspendTime = 10;
+            sub.suspend(suspendTime, {from:PLATFORM_OWNER})
+            .then(tx => assertLogEvent(tx,abi_SubModuleSuspended,'Check: event SubModuleSuspended fired. ', (evnt)=> ({
+                suspendUntil : ethNow(tx.receipt.blockNumber) + suspendTime
+            }))).then(evnt => sub.isSuspended())
+            .then(isSuspended => {
+                assert.ok(isSuspended, "expectes suspended state");
+                return sub.createDeposit(1, 1, "0x123", {from:USER_01})
+                    .then(tx => done(tx))
+                    .catch(err => evm_increaseTime(suspendTime).then(evm_mine))
+                    .then(tx => sub.isSuspended())
+                    .then(isSuspended => {
+                      assert.ok(!isSuspended, "expectes not suspended state");
+                      sub.createDeposit(1, 1, "0x123", {from:USER_01});
+                    })
+                    .then(tx=>done());
+            });
+
+    });
 
     [[USER_01, 112, 3, web3.toHex("deposit 1")]]
     .forEach(([user, amount, lockTime, info],i)=>{
