@@ -1,159 +1,6 @@
 pragma solidity ^0.4.11;
 
-// ==== DISCLAIMER ====
-//
-// ETHEREUM IS STILL AN EXPEREMENTAL TECHNOLOGY.
-// ALTHOUGH THIS SMART CONTRACT WAS CREATED WITH GREAT CARE AND IN THE HOPE OF BEING USEFUL, NO GUARANTEES OF FLAWLESS OPERATION CAN BE GIVEN.
-// IN PARTICULAR - SUBTILE BUGS, HACKER ATTACKS OR MALFUNCTION OF UNDERLYING TECHNOLOGY CAN CAUSE UNINTENTIONAL BEHAVIOUR.
-// YOU ARE STRONGLY ENCOURAGED TO STUDY THIS SMART CONTRACT CAREFULLY IN ORDER TO UNDERSTAND POSSIBLE EDGE CASES AND RISKS.
-// DON'T USE THIS SMART CONTRACT IF YOU HAVE SUBSTANTIAL DOUBTS OR IF YOU DON'T KNOW WHAT YOU ARE DOING.
-//
-// THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-// AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-// OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// ====
-//
-
-/// @author Santiment LLC
-/// @title  Subscription Module for SAN - santiment token
-
-contract Base {
-
-    function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }
-    function min(uint a, uint b) returns (uint) { return a <= b ? a : b; }
-
-    modifier only(address allowed) {
-        if (msg.sender != allowed) throw;
-        _;
-    }
-
-
-    ///@return True if `_addr` is a contract
-    function isContract(address _addr) constant internal returns (bool) {
-        if (_addr == 0) return false;
-        uint size;
-        assembly {
-            size := extcodesize(_addr)
-        }
-        return (size > 0);
-    }
-
-    // *************************************************
-    // *          reentrancy handling                  *
-    // *************************************************
-
-    //@dev predefined locks (up to uint bit length, i.e. 256 possible)
-    uint constant internal L00 = 2 ** 0;
-    uint constant internal L01 = 2 ** 1;
-    uint constant internal L02 = 2 ** 2;
-    uint constant internal L03 = 2 ** 3;
-    uint constant internal L04 = 2 ** 4;
-    uint constant internal L05 = 2 ** 5;
-
-    //prevents reentrancy attacs: specific locks
-    uint private bitlocks = 0;
-    modifier noReentrancy(uint m) {
-        var _locks = bitlocks;
-        if (_locks & m > 0) throw;
-        bitlocks |= m;
-        _;
-        bitlocks = _locks;
-    }
-
-    modifier noAnyReentrancy {
-        var _locks = bitlocks;
-        if (_locks > 0) throw;
-        bitlocks = uint(-1);
-        _;
-        bitlocks = _locks;
-    }
-
-    ///@dev empty marking modifier signaling to user of the marked function , that it can cause an reentrant call.
-    ///     developer should make the caller function reentrant-safe if it use a reentrant function.
-    modifier reentrant { _; }
-
-}
-
-contract Owned is Base {
-
-    address public owner;
-    address public newOwner;
-
-    function Owned() {
-        owner = msg.sender;
-    }
-
-    function transferOwnership(address _newOwner) only(owner) {
-        newOwner = _newOwner;
-    }
-
-    function acceptOwnership() only(newOwner) {
-        OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
-    }
-
-    event OwnershipTransferred(address indexed _from, address indexed _to);
-
-}
-
-
-contract ERC20 is Owned {
-
-    event Transfer(address indexed _from, address indexed _to, uint256 _value);
-    event Approval(address indexed _owner, address indexed _spender, uint256 _value);
-
-    function transfer(address _to, uint256 _value) isStartedOnly returns (bool success) {
-        if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
-            balances[msg.sender] -= _value;
-            balances[_to] += _value;
-            Transfer(msg.sender, _to, _value);
-            return true;
-        } else { return false; }
-    }
-
-    function transferFrom(address _from, address _to, uint256 _value) isStartedOnly returns (bool success) {
-        if (balances[_from] >= _value && allowed[_from][msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
-            balances[_to] += _value;
-            balances[_from] -= _value;
-            allowed[_from][msg.sender] -= _value;
-            Transfer(_from, _to, _value);
-            return true;
-        } else { return false; }
-    }
-
-    function balanceOf(address _owner) constant returns (uint256 balance) {
-        return balances[_owner];
-    }
-
-    function approve(address _spender, uint256 _value) isStartedOnly returns (bool success) {
-        allowed[msg.sender][_spender] = _value;
-        Approval(msg.sender, _spender, _value);
-        return true;
-    }
-
-    function allowance(address _owner, address _spender) constant returns (uint256 remaining) {
-        return allowed[_owner][_spender];
-    }
-
-    mapping (address => uint256) balances;
-    mapping (address => mapping (address => uint256)) allowed;
-
-    uint256 public totalSupply;
-    bool    public isStarted = false;
-
-    modifier onlyHolder(address holder) {
-        if (balanceOf(holder) == 0) throw;
-        _;
-    }
-
-    modifier isStartedOnly() {
-        if (!isStarted) throw;
-        _;
-    }
-
-}
+import "./ERC20.sol";
 
 //Decision made.
 // 1 - Provider is solely responsible to consider failed sub charge as an error and stop the service,
@@ -166,6 +13,8 @@ contract ERC20 is Owned {
 // 3 - Service providers are responsible for firing events in case of offer changes;
 //     it is theirs decision to inform DApps about offer changes or not.
 //
+//ToDo:
+// 8 - validate linking modules and deployment process: attachToken(address token) public
 
 
 ///@dev an base class to implement by Service Provider contract to be notified about subscription changes (in-Tx notification).
@@ -274,12 +123,14 @@ contract SubscriptionBase {
 
     struct Deposit {
         uint value;         // value on deposit
+        uint createdOn;     // deposit created on
+        uint lockPeriod;    // deposit is locked for time; 0 - no lock.
         address owner;      // usually a customer
         bytes descriptor;   // service related descriptor to be evaluated by service provider
     }
 
     event NewSubscription(address customer, address service, uint offerId, uint subId);
-    event NewDeposit(uint depositId, uint value, address sender);
+    event NewDeposit(uint depositId, uint value, uint lockPeriod, address sender);
     event NewXRateProvider(address addr, uint16 xRateProviderId, address sender);
     event DepositReturned(uint depositId, address returnedTo);
     event SubscriptionDepositReturned(uint subId, uint amount, address returnedTo, address sender);
@@ -365,12 +216,7 @@ contract SubscriptionModule is SubscriptionBase, Base {
 
 } //SubscriptionModule
 
-contract ERC20ModuleSupport {
-    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
-    function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
-    function _mintFromDeposit(address owner, uint amount) public;
-    function _burnForDeposit(address owner, uint amount) public returns(bool success);
-}
+
 
 //@dev implementation
 contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
@@ -924,15 +770,17 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     ///        Service Provider should reject deposit with unknown descriptor, because most probably it is in use for some another service.
     ///@return depositId - a handle to claim back the deposit later.
     //
-    function createDeposit(uint _value, bytes _descriptor) public returns (uint depositId) {
+    function createDeposit(uint _value, uint _lockPeriod, bytes _descriptor) public returns (uint depositId) {
         require (_value > 0);
         assert (san._burnForDeposit(msg.sender,_value));
         deposits[++depositCounter] = Deposit ({
             owner : msg.sender,
             value : _value,
+            createdOn : now,
+            lockPeriod : _lockPeriod,
             descriptor : _descriptor
         });
-        NewDeposit(depositCounter, _value, msg.sender);
+        NewDeposit(depositCounter, _value, _lockPeriod, msg.sender);
         return depositCounter;
     }
 
@@ -944,6 +792,7 @@ contract SubscriptionModuleImpl is SubscriptionModule, Owned  {
     function claimDeposit(uint _depositId) public {
         var deposit = deposits[_depositId];
         require (deposit.owner == msg.sender);
+        assert (deposit.lockPeriod == 0 || deposit.createdOn + deposit.lockPeriod < now)
         var value = deposits[_depositId].value;
         delete deposits[_depositId];
         san._mintFromDeposit(msg.sender, value);

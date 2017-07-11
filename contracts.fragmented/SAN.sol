@@ -1,24 +1,5 @@
 pragma solidity ^0.4.11;
 
-// ==== DISCLAIMER ====
-//
-// ETHEREUM IS STILL AN EXPEREMENTAL TECHNOLOGY.
-// ALTHOUGH THIS SMART CONTRACT WAS CREATED WITH GREAT CARE AND IN THE HOPE OF BEING USEFUL, NO GUARANTEES OF FLAWLESS OPERATION CAN BE GIVEN.
-// IN PARTICULAR - SUBTILE BUGS, HACKER ATTACKS OR MALFUNCTION OF UNDERLYING TECHNOLOGY CAN CAUSE UNINTENTIONAL BEHAVIOUR.
-// YOU ARE STRONGLY ENCOURAGED TO STUDY THIS SMART CONTRACT CAREFULLY IN ORDER TO UNDERSTAND POSSIBLE EDGE CASES AND RISKS.
-// DON'T USE THIS SMART CONTRACT IF YOU HAVE SUBSTANTIAL DOUBTS OR IF YOU DON'T KNOW WHAT YOU ARE DOING.
-//
-// THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-// AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-// OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// ====
-//
-
-/// @author Santiment LLC
-/// @title  SAN - santiment token
-
 contract Base {
 
     function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }
@@ -76,6 +57,14 @@ contract Base {
 
 }
 
+contract MintableToken {
+    //target token contract is responsible to accept only authorized mint calls.
+    function mint(uint amount, address account);
+
+    //start the token on minting finished,
+    function start();
+}
+
 contract Owned is Base {
 
     address public owner;
@@ -98,11 +87,28 @@ contract Owned is Base {
 
 }
 
+contract ERC20 {
 
-contract ERC20 is Owned {
+    function totalSupply() constant returns (uint256 totalSupply) {}
+    function balanceOf(address _owner) constant returns (uint256 balance);
+    function transfer(address _to, uint256 _value) returns (bool success);
+    function transferFrom(address _from, address _to, uint256 _value) returns (bool success);
+    function approve(address _spender, uint256 _value) returns (bool success);
+    function allowance(address _owner, address _spender) constant returns (uint256 remaining);
 
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+
+}
+
+contract ERC20ModuleSupport {
+    function _fulfillPreapprovedPayment(address _from, address _to, uint _value, address msg_sender) public returns(bool success);
+    function _fulfillPayment(address _from, address _to, uint _value, uint subId, address msg_sender) public returns (bool success);
+    function _mintFromDeposit(address owner, uint amount) public;
+    function _burnForDeposit(address owner, uint amount) public returns(bool success);
+}
+
+contract ERC20Impl is ERC20, Base {
 
     function transfer(address _to, uint256 _value) isStartedOnly returns (bool success) {
         if (balances[msg.sender] >= _value && balances[_to] + _value > balances[_to]) {
@@ -155,18 +161,27 @@ contract ERC20 is Owned {
 
 }
 
+contract XRateProvider {
+
+    //@dev returns current exchange rate (in form of a simple fraction) from other currency to SAN (f.e. ETH:SAN).
+    //@dev fraction numbers are restricted to uint16 to prevent overflow in calculations;
+    function getRate() public returns (uint32 /*nominator*/, uint32 /*denominator*/);
+
+    //@dev provides a code for another currency, f.e. "ETH" or "USD"
+    function getCode() public returns (string);
+}
 
 contract SubscriptionModule {
     function attachToken(address addr) public ;
 }
 
-contract SAN is Owned, ERC20 {
+contract SAN is Owned, ERC20Impl, MintableToken, XRateProvider, ERC20ModuleSupport {
 
     string public constant name     = "SANtiment network token";
     string public constant symbol   = "SAN";
-    uint8  public constant decimals = 18;
+    uint8  public constant decimals = 15;
 
-    address CROWDSALE_MINTER = 0xDa2Cf810c5718135247628689D84F94c61B41d6A;
+    address CROWDSALE_MINTER = 0xD88E4822687d0F9c73E296296Ed3eCd0a193dd46;
     address public SUBSCRIPTION_MODULE = 0x00000000;
     address public beneficiary;
 
@@ -214,12 +229,6 @@ contract SAN is Owned, ERC20 {
         PLATFORM_FEE_PER_10000 = newFee;
     }
 
-    function startToken()
-    isNotStartedOnly
-    only(owner) {
-        totalInCirculation = totalSupply;
-        isStarted = true;
-    }
 
     //======== Interface XRateProvider: a trivial exchange rate provider. Rate is 1:1 and SAN symbol as the code
     //
@@ -297,7 +306,6 @@ contract SAN is Owned, ERC20 {
         } else { return false; }
     }
 
-
     //========= Crowdsale Only ===============
     ///@notice mint new token for given account in crowdsale stage
     ///@dev allowed only if token not started yet and only for registered minter.
@@ -312,8 +320,8 @@ contract SAN is Owned, ERC20 {
 
     ///@notice start normal operation of the token. No minting is possible after this point.
     function start()
-    onlyCrowdsaleMinter
-    isNotStartedOnly {
+    isNotStartedOnly
+    only(owner) {
         totalInCirculation = totalSupply;
         isStarted = true;
     }

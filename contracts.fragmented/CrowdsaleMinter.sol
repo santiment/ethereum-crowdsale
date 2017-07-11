@@ -16,95 +16,10 @@ pragma solidity ^0.4.11;
 // ====
 //
 
-/// @author ethernian for Santiment LLC
+/// @author Santiment Sagl
 /// @title  CrowdsaleMinter
 
-contract Base {
-
-    function max(uint a, uint b) returns (uint) { return a >= b ? a : b; }
-    function min(uint a, uint b) returns (uint) { return a <= b ? a : b; }
-
-    modifier only(address allowed) {
-        if (msg.sender != allowed) throw;
-        _;
-    }
-
-
-    ///@return True if `_addr` is a contract
-    function isContract(address _addr) constant internal returns (bool) {
-        if (_addr == 0) return false;
-        uint size;
-        assembly {
-            size := extcodesize(_addr)
-        }
-        return (size > 0);
-    }
-
-    // *************************************************
-    // *          reentrancy handling                  *
-    // *************************************************
-
-    //@dev predefined locks (up to uint bit length, i.e. 256 possible)
-    uint constant internal L00 = 2 ** 0;
-    uint constant internal L01 = 2 ** 1;
-    uint constant internal L02 = 2 ** 2;
-    uint constant internal L03 = 2 ** 3;
-    uint constant internal L04 = 2 ** 4;
-    uint constant internal L05 = 2 ** 5;
-
-    //prevents reentrancy attacs: specific locks
-    uint private bitlocks = 0;
-    modifier noReentrancy(uint m) {
-        var _locks = bitlocks;
-        if (_locks & m > 0) throw;
-        bitlocks |= m;
-        _;
-        bitlocks = _locks;
-    }
-
-    modifier noAnyReentrancy {
-        var _locks = bitlocks;
-        if (_locks > 0) throw;
-        bitlocks = uint(-1);
-        _;
-        bitlocks = _locks;
-    }
-
-    ///@dev empty marking modifier signaling to user of the marked function , that it can cause an reentrant call.
-    ///     developer should make the caller function reentrant-safe if it use a reentrant function.
-    modifier reentrant { _; }
-
-}
-
-contract MintableToken {
-    //target token contract is responsible to accept only authorized mint calls.
-    function mint(uint amount, address account);
-
-    //start the token on minting finished,
-    function start();
-}
-
-contract Owned is Base {
-
-    address public owner;
-    address public newOwner;
-
-    function Owned() {
-        owner = msg.sender;
-    }
-
-    function transferOwnership(address _newOwner) only(owner) {
-        newOwner = _newOwner;
-    }
-
-    function acceptOwnership() only(newOwner) {
-        OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
-    }
-
-    event OwnershipTransferred(address indexed _from, address indexed _to);
-
-}
+import "./Base.sol";
 
 contract BalanceStorage {
     function balances(address account) public constant returns(uint balance);
@@ -124,32 +39,32 @@ contract PresaleBonusVoting {
 
 contract CrowdsaleMinter is Owned {
 
-    string public constant VERSION = "0.2.1";
+    string public constant VERSION = "0.2.1-TEST.1";
 
     /* ====== configuration START ====== */
-    uint public constant COMMUNITY_SALE_START = 3973420; /* approx. 04.07.2017 16:00 GMT+1 */
-    uint public constant PRIORITY_SALE_START  = 3978496; /* approx. 05.07.2017 16:00 GMT+1 */
-    uint public constant PUBLIC_SALE_START    = 3983578; /* approx. 06.07.2017 16:00 GMT+1 */
-    uint public constant PUBLIC_SALE_END      = 4130967; /* approx. 04.08.2017 16:00 GMT+1 */
-    uint public constant WITHDRAWAL_END       = 4288520; /* approx. 04.09.2017 16:00 GMT+1 */
+    uint public constant COMMUNITY_SALE_START = 3968190; /* approx. 03.07.2017 15:39 */
+    uint public constant PRIORITY_SALE_START  = 3968310; /* approx. 30.07.2017 16:00 */
+    uint public constant PUBLIC_SALE_START    = 3968430; /* approx. 30.07.2017 16:30 */
+    uint public constant PUBLIC_SALE_END      = 3968550; /* approx. 30.07.2017 17:00 */
+    uint public constant WITHDRAWAL_END       = 3968670; /* approx. 30.07.2017 17:10 */
 
-    address public TEAM_GROUP_WALLET           = 0xA0D8F33Ef9B44DaAE522531DD5E7252962b09207;
-    address public ADVISERS_AND_FRIENDS_WALLET = 0x44f145f6Bc36e51eED9b661e99C8b9CCF987c043;
+    address public TEAM_GROUP_WALLET           = 0x008cdC9b89AD677CEf7F2C055efC97d3606a50Bd;
+    address public ADVISERS_AND_FRIENDS_WALLET = 0x00eCf92fA3678678a1B82899da1307a0083b6379;
 
     uint public constant TEAM_BONUS_PER_CENT            = 18;
     uint public constant ADVISORS_AND_PARTNERS_PER_CENT = 10;
 
     MintableToken      public TOKEN                    = MintableToken(0x00000000000000000000000000);
 
-    AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x9411Cf70F97C2ED09325e58629D48401aEd50F89);
-    MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0xD2675D3ea478692Ad34f09FA1f8BDa67A9696bf7);
+    AddressList        public PRIORITY_ADDRESS_LIST    = AddressList(0x463635eFd22558c64Efa6227A45649eeDc0e4888);
+    MinMaxWhiteList    public COMMUNITY_ALLOWANCE_LIST = MinMaxWhiteList(0x3375D3d9df8C67b3D7EBcE220c3DDa4BE03dCE31);
     BalanceStorage     public PRESALE_BALANCES         = BalanceStorage(0x4Fd997Ed7c10DbD04e95d3730cd77D79513076F2);
     PresaleBonusVoting public PRESALE_BONUS_VOTING     = PresaleBonusVoting(0x283a97Af867165169AECe0b2E963b9f0FC7E5b8c);
 
-    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 45000;
-    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 15000;
-    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 45000;
-    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 200;
+    uint public constant COMMUNITY_PLUS_PRIORITY_SALE_CAP_ETH = 5;
+    uint public constant MIN_TOTAL_AMOUNT_TO_RECEIVE_ETH = 3;
+    uint public constant MAX_TOTAL_AMOUNT_TO_RECEIVE_ETH = 5;
+    uint public constant MIN_ACCEPTED_AMOUNT_FINNEY = 500;
     uint public constant TOKEN_PER_ETH = 1000;
     uint public constant PRE_SALE_BONUS_PER_CENT = 54;
 
